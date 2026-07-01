@@ -1,344 +1,185 @@
-# 元启Alpha (YuanQi Alpha)
+# 元启Alpha YuanQi Alpha
 
-> 多智能体AI投资决策系统 | Multi-Agent Investment Decision System
+> 面向券商财富管理、投顾服务和投研支持场景的多智能体 AI 投研辅助工作台。
 
-## 项目概述
+元启Alpha 不是面向散户的“自动荐股”工具，而是一个用于金融机构内部投研服务准备、观点交叉复核、报告草稿生成和过程留痕的 AI 工作流系统。系统支持 A 股、港股、美股不同市场框架：A 股采用基本面、情绪面、资金面三维分析，港美股采用 Fundamental、Sentiment、Valuation 分工。
 
-「元启Alpha」是一个覆盖 A 股、港股和美股的多智能体 AI 投资决策系统，灵感源自 AlphaAgents。系统按市场启用不同的三分析师框架，经过独立分析、辩论和置信度加权表决形成团队结论；主持人只负责协调、核对证据和汇总报告，不作为第四个投票者。
+## 产品定位
 
-### 核心特色
+元启Alpha 通过多位专业 Agent 独立分析、主持人分歧提示、多轮辩论复核和置信度加权投票，辅助投顾或投研人员形成可人工确认、可复盘、可留痕的服务建议草稿。
 
-- **双市场框架**：A 股使用基本面/消息面/资金面；港美股使用 Fundamental/Sentiment/Valuation
-- **名称与代码识别**：先选择市场，再输入股票名称或代码，后端统一解析为标准标的
-- **AI辩论协商**：多轮观点交锋与1对1沟通，模拟真实投研团队的讨论过程
-- **共识决策机制**：轮询辩论 → 主持人1对1澄清 → 2/3置信度加权表决 → 报告汇总
-- **公网BYOK**：四个Agent由用户配置模型和API Key；MCP可选，未配置时使用内置免费数据源
-- **SSE流式输出**：实时展示分析过程，提升用户体验
-- **MCP数据源**：支持恒生聚源等专业数据源的MCP接入
-- **历史战绩追踪**：自动保存分析记录，支持胜率统计和绩效归因
+> 合规提示：系统输出仅用于研究、演示、投资者教育或内部服务准备，不构成投资建议、交易指令或收益承诺。正式使用前应结合机构合规要求、客户适当性和人工复核。
 
----
+## 核心亮点
+
+- **市场框架适配**：A 股使用基本面 / 情绪面 / 资金面；港美股使用 Fundamental / Sentiment / Valuation。
+- **多 Agent 独立分析**：三位分析师分别输出结构化立场、置信度、论据、证据和保留意见。
+- **辩论交叉复核**：每轮辩论引入其他分析师观点和最近辩论历史，促使 Agent 复核自己的结论。
+- **主持人协调机制**：主持人负责指出证据冲突、逻辑缺口和关键分歧，但不作为第四个投票者。
+- **置信度加权共识**：使用辩论后的最终立场和置信度投票，达到 2/3 权重才形成团队共识。
+- **公网 BYOK**：用户自行配置大模型 API Key；MCP 数据源可选，未配置时使用内置免费数据源。
+- **历史留痕与导出**：保存完整分析过程，支持历史复盘、胜率统计、图片 / PDF / JSON 导出。
+
+## 系统流程
+
+```text
+选择市场与标的
+  ↓
+获取行情、财务、新闻、资金流与可选 MCP 数据
+  ↓
+三位分析师 Agent 独立分析
+  ↓
+主持人提示分歧，多轮辩论交叉复核
+  ↓
+置信度加权投票，形成 BUY / SELL / HOLD 草稿
+  ↓
+主持人汇总报告，保存历史记录并支持导出
+```
+
+## 页面功能
+
+| 路由 | 功能 |
+|---|---|
+| `/` | 分析工作台：市场选择、单股分析、批量分析、实时过程展示、最终报告 |
+| `/settings` | API 配置：大模型 API、数据源 API、MCP 数据源 |
+| `/history` | 历史战绩：分析记录、胜率统计、分析师表现 |
+| `/history/[id]` | 历史详情：完整过程回放、报告导出 |
+| `/api/analyze` | SSE 流式多 Agent 分析接口 |
+| `/api/stock/price` | 股票价格查询接口 |
+| `/api/mcp/test` | MCP Server 连接测试接口 |
 
 ## 技术栈
 
 | 层级 | 技术 |
-|------|------|
-| 框架 | Next.js 16 (App Router) |
-| 核心 | React 19 |
-| 语言 | TypeScript 5 |
-| UI组件 | shadcn/ui (基于 Radix UI) |
-| 样式 | Tailwind CSS 4 |
-| LLM SDK | 直接fetch调用各平台OpenAI兼容API |
-| 数据可视化 | recharts |
-| 导出功能 | html2canvas + jspdf |
+|---|---|
+| Framework | Next.js 16 App Router |
+| UI | React 19, Tailwind CSS 4, shadcn/ui |
+| Language | TypeScript 5 |
+| Data Viz | Recharts |
+| Export | html2canvas, jsPDF |
+| LLM | OpenAI-compatible Chat Completions API |
+| Data Source | 东方财富、腾讯行情、SEC、HKEXnews、Nasdaq、MCP 可选 |
 
----
+## 快速开始
 
-## AI Agent架构
-
-### 分析师团队
-
-| 市场 | 三位投票分析师 | 框架侧重 |
-|------|--------------------|----------|
-| A 股 | 基本面 / 消息面 / 资金面 | 估值与财务、政策与舆情、主力/北向/两融资金 |
-| 港股、美股 | Fundamental / Sentiment / Valuation | AlphaAgents 角色分工，估值 Agent 使用价格、成交量、波动率与回撤指标 |
-
-| Agent | 模型 | 平台 | 职责 | 特色 |
-|-------|------|------|------|------|
-| 基本面 / Fundamental | deepseek-v4-pro | DeepSeek | 财务、竞争优势、行业地位 | thinking模式 |
-| 消息面 / Sentiment | qwen3.6-plus | 阿里云百炼 | 政策、舆论、新闻与催化剂 | 多模态理解 |
-| 资金面 / Valuation | deepseek-v4-flash | DeepSeek | A 股资金流或港美股估值指标 | 按市场切换角色 |
-| 主持人 | doubao-seed-2-0-pro | 火山引擎 | 讨论协调、证据核对、报告汇总 | 不参与投票 |
-
-### 独立性设计
-
-三位分析师是**完全独立**的Agent：
-- **独立LLM调用**：分别调用不同模型/平台，互不干扰
-- **独立System Prompt**：每位有专属角色定义，被明确限制"不要涉及其他面的内容"
-- **独立数据输入**：共享股票数据但各自关注不同维度
-- **独立输出**：各自输出stance、confidence、reasons、evidence、analysis
-
-### 决策流程
-
-```
-数据获取 → 独立分析 → 轮询辩论 → 1对1沟通 → 投票表决 → 最终决策
-```
-
-**1. 数据获取阶段**
-- 获取实时行情、财务数据、资金流向、新闻资讯
-- 优先使用MCP数据源（恒生聚源），fallback到公开API
-
-**2. 独立分析阶段**
-- 三位分析师并行分析，各自输出结构化报告
-- 包含：立场(BULLISH/BEARISH/NEUTRAL)、置信度(1-10)、论据、证据、保留意见
-
-**3. 轮询辩论阶段**
-- 每位分析师审视其他两位的观点
-- 可选择坚持原立场或改变立场（需说明核心转变原因）
-- 辩论历史累积传递，每轮基于独立分析+最近2轮辩论历史
-- 连续3轮无人修改观点则判定为死锁
-
-**4. 主持人1对1沟通**
-- 针对分歧较大的分析师澄清证据冲突、遗漏信息和逻辑跳跃
-- 主持人不得引入分析材料之外的新事实，也不得要求分析师迎合多数
-
-**5. 投票表决**
-- 按各分析师自报置信度加权
-- 某方向达到有效票重的2/3才形成团队共识
-- 未达到阈值时保持HOLD，由主持人整理分歧，不得代替团队拍板
-
-**6. 最终报告**
-- BUY/SELL/HOLD由已校验的团队共识确定，主持人不能改写方向
-- 包含：置信度、目标价位、风险等级、核心逻辑、关键风险、操作建议
-
----
-
-## 数据源架构
-
-### 默认数据源
-
-| 数据类型 | 来源 | 说明 |
-|---------|------|------|
-| A 股实时行情与资金流 | 东方财富 push2 API | 免费数据回退 |
-| 美股历史价量 | Nasdaq 公开接口 | 用于收益、波动率、回撤和技术指标 |
-| 港股历史价量 | 腾讯行情接口 | 用于估值 Agent 的定量输入 |
-| 美股标准化财务 | SEC Company Facts (XBRL) | 从最新年报计算营收、利润、利润率、ROE、资产负债率与现金流 |
-| 港股财报证据 | HKEXnews 标题检索 | 返回发行人披露的季报/中报/年报原始 PDF 入口，未抽取时不推断数字 |
-| 新闻资讯 | 新浪财经 + 网络搜索 | 免费数据回退 |
-
-> 公网商用前需完成数据源的授权、频率限制和 SLA 审核。SEC 数据按年报期间与表单类型筛选；港股免费回退目前只注入官方公告入口，标准化数字仍由 MCP 补充。任何缺失数据都不得由模型自行补写。
-
-### MCP数据源（可选）
-
-支持通过MCP协议接入恒生聚源等专业数据服务：
-
-| 工具 | 功能 |
-|------|------|
-| FinGeneralQuery | 综合金融数据查询（财务、行情、资金流向） |
-| MacroIndustryData | 宏观与行业数据 |
-| FinancialResearchReport | 券商研报检索 |
-| AnnouncementData | 上市公司公告检索 |
-
-**配置方式**：在"API配置"页面添加MCP Server URL，系统自动注册并加载工具列表。
-
----
-
-## 项目结构
-
-```
-├── public/                     # 静态资源
-├── scripts/                    # 构建与启动脚本
-│   ├── dev.sh                  # 开发环境启动
-│   ├── build.sh                # 生产构建
-│   └── start.sh                # 生产环境启动
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── analyze/
-│   │   │   │   └── route.ts    # 核心分析API (SSE流式)
-│   │   │   └── stock/price/
-│   │   │       └── route.ts    # 股票价格查询API
-│   │   ├── globals.css         # 全局样式 (深色金融终端主题)
-│   │   ├── layout.tsx          # 根布局
-│   │   ├── page.tsx            # 主页面 (投资决策界面)
-│   │   ├── history/
-│   │   │   ├── page.tsx        # 历史战绩列表
-│   │   │   └── [id]/
-│   │   │       └── page.tsx    # 历史详情页
-│   │   └── settings/
-│   │       └── page.tsx        # API配置页面
-│   ├── components/
-│   │   ├── ui/                 # shadcn/ui 组件库
-│   │   └── analysis/           # 分析相关组件
-│   │       ├── AgentDetailModal.tsx    # 分析师详情弹窗
-│   │       ├── AgentStructuredView.tsx # 结构化分析展示
-│   │       ├── ChangeIndicator.tsx     # 立场变化指示器
-│   │       ├── CollapsibleSection.tsx  # 可折叠区块
-│   │       ├── StanceBadge.tsx         # 立场徽章
-│   │       ├── VoteBar.tsx             # 投票结果条
-│   │       └── types.ts                # 分析组件类型定义
-│   ├── lib/
-│   │   ├── agents/
-│   │   │   ├── config.ts       # Agent配置（模型、prompt）
-│   │   │   ├── llm.ts          # LLM调用封装
-│   │   │   ├── parser.ts       # Agent响应解析
-│   │   │   ├── prompts.ts      # Prompt构建函数
-│   │   │   ├── types.ts        # Agent类型定义
-│   │   │   └── mock.ts         # 模拟数据
-│   │   ├── data/
-│   │   │   ├── stock.ts        # 股票数据获取
-│   │   │   ├── news.ts         # 新闻数据获取
-│   │   │   └── types.ts        # 数据类型定义
-│   │   ├── mcp/
-│   │   │   ├── client.ts       # MCP客户端
-│   │   │   ├── data-source.ts  # MCP数据源管理
-│   │   │   ├── types.ts        # MCP类型定义
-│   │   │   └── index.ts        # 导出
-│   │   ├── export.ts           # 分析结果导出（图片/PDF/JSON）
-│   │   ├── history.ts          # 历史记录管理
-│   │   ├── api-config.ts       # API配置管理
-│   │   ├── sse-client.ts       # SSE客户端封装
-│   │   └── utils.ts            # 通用工具函数
-│   ├── hooks/                  # 自定义Hooks
-│   └── server.ts               # 自定义服务端入口
-├── next.config.ts
-├── package.json
-├── tsconfig.json
-└── README.md
-```
-
----
-
-## 核心API
-
-### POST /api/analyze
-
-SSE流式接口，接收市场与股票名称/代码，返回多智能体分析结果。
-
-**请求体**:
-```json
-{
-  "market": "CN",
-  "stockCode": "600519",
-  "userApiConfig": {
-    "llm": { ... },
-    "mcp": { ... }
-  }
-}
-```
-
-`market` 可为 `CN` / `HK` / `US`。
-
-**SSE事件类型**:
-
-| 事件 | 说明 |
-|------|------|
-| `phase` | 阶段切换 (data_fetch/analysis/debate/1v1/vote/moderator/done) |
-| `data_loaded` | 数据获取完成 |
-| `news_loaded` | 新闻加载完成 |
-| `agent_start` | Agent开始分析 |
-| `agent_chunk` | Agent流式输出内容 |
-| `agent_complete` | Agent分析完成 (含stance/score) |
-| `agent_status` | Agent调用状态 (success/fallback/error) |
-| `debate_round` | 辩论轮次切换 |
-| `debate_start` | 某Agent开始辩论发言 |
-| `debate_chunk` | 辩论内容流式输出 |
-| `debate_complete` | 某Agent辩论完成 |
-| `deadlock` | 辩论死锁 |
-| `consensus` | 辩论达成共识 |
-| `1v1_round` | 1对1沟通轮次 |
-| `1v1_start` | 某Agent开始1对1 |
-| `1v1_moderator` | 主持人消息 |
-| `1v1_chunk` | 1对1内容流式输出 |
-| `1v1_complete` | 1对1完成 |
-| `vote_result` | 投票结果 |
-| `arbitration` | 主持人仲裁 |
-| `moderator_start` | 主持人开始总结 |
-| `moderator_chunk` | 主持人总结流式输出 |
-| `decision` | 最终决策 (BUY/SELL/HOLD + 置信度) |
-| `error` | 错误信息 |
-| `done` | 流结束 |
-
----
-
-## 环境变量
-
-| 变量 | 说明 | 必需 |
-|------|------|------|
-| `DEEPSEEK_API_KEY` | DeepSeek API密钥 | 可选（无则进入模拟模式） |
-| `DASHSCOPE_API_KEY` | 阿里云百炼API密钥 | 可选 |
-| `VOLCENGINE_API_KEY` | 火山引擎API密钥 | 可选 |
-| `SEC_USER_AGENT` | SEC 请求标识，公网环境应包含项目名与可联系邮箱 | 生产环境必填 |
-| `UPSTASH_REDIS_REST_URL` | 分布式限流 Redis REST 地址 | 生产环境必填 |
-| `UPSTASH_REDIS_REST_TOKEN` | 分布式限流 Redis REST Token | 生产环境必填 |
-| `TRUSTED_CLIENT_IP_HEADER` | 反向代理写入的真实客户端 IP Header，默认 `x-forwarded-for` | 可选 |
-| `DATA_SOURCE_COMPLIANCE_ACK` | 数据源条款/授权审核版本，当前要求 `2026-06` | 生产环境必填 |
-
-> 生产环境未配置分布式限流或未确认数据源合规版本时，高成本分析/行情接口会以 `503` 拒绝请求。`ALLOW_IN_MEMORY_RATE_LIMIT=true` 仅用于明确的单实例过渡环境，不建议用于公网。
-
----
-
-## 构建与运行
+### 1. 安装依赖
 
 ```bash
-# 安装依赖（仅允许pnpm）
 pnpm install
-
-# 开发环境（端口5000）
-pnpm dev
-
-# TypeScript类型检查
-pnpm ts-check
-
-# ESLint代码检查
-pnpm lint
-
-# 构建生产版本
-pnpm build
-
-# 启动生产环境
-pnpm start
 ```
 
----
+### 2. 本地开发
 
-## 设计规范
+```bash
+pnpm dev
+```
 
-### 颜色体系
+默认本地地址：
 
-| 用途 | 色值 | 说明 |
-|------|------|------|
-| 背景 | `#0a0e17` | 深色金融终端背景 |
-| 卡片 | `#111827` | 卡片背景 |
-| 金色主题 | `#d4a843` | 品牌主色 |
-| BUY（看多） | `#ff1744` | A股红色（红涨） |
-| SELL（看空） | `#00c853` | A股绿色（绿跌） |
-| HOLD（持有） | `#ffc107` | 黄色 |
+```text
+http://localhost:5000
+```
 
-### 交互设计
+如果 5000 端口被占用，也可以直接使用：
 
-- 点击分析师卡片可弹出详情弹窗，查看完整分析
-- 辩论和1对1轮次可折叠/展开
-- 进度条支持点击跳转到对应阶段
-- 批量分析支持最多5只股票并行分析
+```bash
+PORT=5001 node_modules/.bin/tsx watch src/server.ts
+```
 
----
+### 3. 类型检查和静态检查
 
-## 功能清单
+```bash
+pnpm run ts-check
+pnpm run lint:build
+```
 
-### 已实现功能
+## API Key 配置
 
-- [x] 单股AI分析（基本面+情绪面+资金面）
-- [x] 多轮辩论协商机制
-- [x] 主持人1对1沟通
-- [x] 加权投票表决
-- [x] SSE流式实时输出
-- [x] 模拟模式（无API Key时）
-- [x] MCP数据源接入
-- [x] 历史战绩保存与查看
-- [x] 分析师胜率统计
-- [x] 批量分析（最多5只）
-- [x] 结果导出（图片/PDF/JSON）
-- [x] 分析师详情弹窗
-- [x] 响应式设计
+系统采用 BYOK 模式。用户进入 `/settings` 后，为四个 Agent 分别配置：
 
-### 待优化项
+- 模型名称
+- OpenAI 兼容 API Base URL
+- API Key
 
-- [ ] 分析过程可视化（流程图）
-- [ ] SSE连接稳定性增强
-- [ ] 错误处理增强
-- [ ] 加载状态优化
-- [ ] 数值优化层（组合配权）
-- [ ] Agent持续学习
+默认推荐模型仅作为占位示例：
 
----
+| Agent | 示例模型 |
+|---|---|
+| 基本面 / Fundamental | `deepseek-v4-pro` |
+| 情绪面 / Sentiment | `qwen3.6-plus` |
+| 资金面 / Valuation | `deepseek-v4-flash` |
+| 主持人 | `doubao-seed-2-0-pro-260215` |
 
-## 免责声明
+API Key 仅保存在当前浏览器会话中；服务端不持久化密钥。
 
-元启Alpha是一个开源学习项目，与贝莱德（BlackRock）无官方关联。系统输出的投资决策仅供参考，不构成投资建议。投资有风险，决策需谨慎。
+## MCP 数据源
 
----
+系统支持通过 Model Context Protocol 接入专业金融数据源。当前内置 MCP 工具适配方向包括：
+
+- `FinGeneralQuery`：综合金融数据查询
+- `MacroIndustryData`：宏观与行业数据
+- `FinancialResearchReport`：券商研报检索
+- `AnnouncementData`：上市公司公告检索
+
+公网演示或正式上线前，请确认 MCP Server URL 中的 token 已脱敏，并确认数据源授权、频率限制和服务条款。
+
+## Vercel 部署
+
+项目已提供 `vercel.json`，Vercel 会使用：
+
+```bash
+pnpm next build
+```
+
+进行构建，避免执行本地自定义服务器脚本。
+
+推荐部署方式：
+
+1. 保持 GitHub 仓库为 Private。
+2. 登录 Vercel，选择 **Add New Project**。
+3. Import `Richard-X-Lion/yuanqi-alpha`。
+4. Framework Preset 选择 **Next.js**。
+5. Install Command 使用 `pnpm install --frozen-lockfile`。
+6. Build Command 使用 `pnpm next build`。
+7. 部署完成后，将 Vercel 生成的域名填回 GitHub 仓库 About 的 Website。
+
+### Vercel 环境变量建议
+
+| 变量 | 说明 |
+|---|---|
+| `SEC_USER_AGENT` | SEC 请求标识，建议包含项目名和联系邮箱 |
+| `UPSTASH_REDIS_REST_URL` | 生产环境分布式限流 Redis REST 地址 |
+| `UPSTASH_REDIS_REST_TOKEN` | 生产环境分布式限流 Redis REST Token |
+| `TRUSTED_CLIENT_IP_HEADER` | 真实客户端 IP Header，默认 `x-forwarded-for` |
+| `DATA_SOURCE_COMPLIANCE_ACK` | 数据源授权确认版本，当前要求 `2026-06` |
+| `ALLOW_IN_MEMORY_RATE_LIMIT` | 仅单实例演示可设为 `true`，不建议正式公网使用 |
+
+> 注意：Vercel Hobby 计划的函数执行时长有限。当前 `/api/analyze` 已按演示环境配置为 60 秒上限。完整多 Agent 辩论在真实模型较慢时可能需要 Pro 计划或后端任务队列。
+
+## 数据源与合规说明
+
+当前系统集成了多类公开数据源与可选 MCP 专业数据源。公网正式上线前，建议完成：
+
+- 数据源授权与频率限制确认
+- API Key 与 MCP token 脱敏
+- 模型输出合规审核
+- “非投资建议 / 需人工确认”提示
+- 生产环境限流与日志保护
+
+## 对外宣传建议
+
+推荐口径：
+
+> 元启Alpha 是面向券商财富管理和投顾服务场景的多智能体 AI 投研辅助工作台，可辅助生成投研观点整理、风险提示和服务建议草稿，并保留分析过程用于复盘与合规留痕。
+
+不建议使用：
+
+- 自动荐股
+- 保证收益
+- 精准买卖点
+- 自动投资决策
+- 代客理财
 
 ## License
 
-MIT License
+当前项目暂未声明开源许可证。仓库保持 Private 时仅供授权人员查看；若未来改为 Public，请先确认授权范围和 License。

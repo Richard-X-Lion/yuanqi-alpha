@@ -34,6 +34,12 @@ import { resolveSecurity } from "@/lib/markets/security";
 import { fetchGlobalStockData } from "@/lib/data/global";
 import { assertDataSourceCompliance } from "@/lib/data/compliance";
 
+// Vercel Hobby currently supports up to 60s for a Node.js route function.
+// For full multi-agent analysis in production, consider a Pro plan or moving
+// long-running orchestration to a background worker.
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
+
 // ============================================================
 // Mock Mode
 // ============================================================
