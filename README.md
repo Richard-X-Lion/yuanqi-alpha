@@ -2,18 +2,17 @@
 
 > 面向券商财富管理、投顾服务和投研支持场景的多智能体 AI 投研辅助工作台。
 
-元启Alpha 不是面向散户的“自动荐股”工具，而是一个用于金融机构内部投研服务准备、观点交叉复核、报告草稿生成和过程留痕的 AI 工作流系统。系统支持 A 股、港股、美股不同市场框架：A 股采用基本面、情绪面、资金面三维分析，港美股采用 Fundamental、Sentiment、Valuation 分工。
+元启Alpha 是一个用于金融机构内部投研服务准备、观点交叉复核、报告草稿生成和过程留痕的 AI 工作流系统。系统支持 A 股、港股、美股不同市场框架：A 股采用基本面、情绪面、资金面三维分析，港美股采用 Fundamental、Sentiment、Valuation 分工。
 
-## 在线演示
+## 在线体验
 
-- Demo 地址：[https://yuanqi-alpha.vercel.app/](https://yuanqi-alpha.vercel.app/)
-- 演示建议：如未配置个人大模型 API Key，可在 Vercel 环境变量中启用模拟模式，用于展示完整产品流程。
+[https://yuanqi-alpha.vercel.app/](https://yuanqi-alpha.vercel.app/)
+
+> 说明：在线版本用于产品能力展示和流程体验。系统输出仅用于研究、演示、投资者教育或内部服务准备，不构成投资建议、交易指令或收益承诺。
 
 ## 产品定位
 
 元启Alpha 通过多位专业 Agent 独立分析、主持人分歧提示、多轮辩论复核和置信度加权投票，辅助投顾或投研人员形成可人工确认、可复盘、可留痕的服务建议草稿。
-
-> 合规提示：系统输出仅用于研究、演示、投资者教育或内部服务准备，不构成投资建议、交易指令或收益承诺。正式使用前应结合机构合规要求、客户适当性和人工复核。
 
 ## 核心亮点
 
@@ -22,7 +21,7 @@
 - **辩论交叉复核**：每轮辩论引入其他分析师观点和最近辩论历史，促使 Agent 复核自己的结论。
 - **主持人协调机制**：主持人负责指出证据冲突、逻辑缺口和关键分歧，但不作为第四个投票者。
 - **置信度加权共识**：使用辩论后的最终立场和置信度投票，达到 2/3 权重才形成团队共识。
-- **公网 BYOK**：用户自行配置大模型 API Key；MCP 数据源可选，未配置时使用内置免费数据源。
+- **BYOK 模式**：用户可自行配置大模型 API Key；MCP 数据源可选，未配置时使用内置免费数据源。
 - **历史留痕与导出**：保存完整分析过程，支持历史复盘、胜率统计、图片 / PDF / JSON 导出。
 
 ## 系统流程
@@ -67,13 +66,13 @@
 
 ## 快速开始
 
-### 1. 安装依赖
+### 安装依赖
 
 ```bash
 pnpm install
 ```
 
-### 2. 本地开发
+### 本地开发
 
 ```bash
 pnpm dev
@@ -85,13 +84,7 @@ pnpm dev
 http://localhost:5000
 ```
 
-如果 5000 端口被占用，也可以直接使用：
-
-```bash
-PORT=5001 node_modules/.bin/tsx watch src/server.ts
-```
-
-### 3. 类型检查和静态检查
+### 类型检查和静态检查
 
 ```bash
 pnpm run ts-check
@@ -100,13 +93,13 @@ pnpm run lint:build
 
 ## API Key 配置
 
-系统采用 BYOK 模式。用户进入 `/settings` 后，为四个 Agent 分别配置：
+系统采用 BYOK（Bring Your Own Key）模式。用户进入 `/settings` 后，可为四个 Agent 分别配置：
 
 - 模型名称
 - OpenAI 兼容 API Base URL
 - API Key
 
-默认推荐模型仅作为占位示例：
+默认模型仅作为配置示例：
 
 | Agent | 示例模型 |
 |---|---|
@@ -115,7 +108,7 @@ pnpm run lint:build
 | 资金面 / Valuation | `deepseek-v4-flash` |
 | 主持人 | `doubao-seed-2-0-pro-260215` |
 
-API Key 仅保存在当前浏览器会话中；服务端不持久化密钥。
+API Key 仅保存在当前浏览器会话中；服务端不持久化用户密钥。
 
 ## MCP 数据源
 
@@ -126,29 +119,17 @@ API Key 仅保存在当前浏览器会话中；服务端不持久化密钥。
 - `FinancialResearchReport`：券商研报检索
 - `AnnouncementData`：上市公司公告检索
 
-公网演示或正式上线前，请确认 MCP Server URL 中的 token 已脱敏，并确认数据源授权、频率限制和服务条款。
+在生产环境使用外部 MCP Server 前，应确认数据源授权、频率限制、服务条款和 token 脱敏方案。
 
-## Vercel 部署
+## 部署
 
-项目已提供 `vercel.json`，Vercel 会使用：
+项目已提供 `vercel.json`，用于在 Vercel 环境中按 Next.js 应用构建：
 
 ```bash
 pnpm next build
 ```
 
-进行构建，避免执行本地自定义服务器脚本。
-
-推荐部署方式：
-
-1. 保持 GitHub 仓库为 Private。
-2. 登录 Vercel，选择 **Add New Project**。
-3. Import `Richard-X-Lion/yuanqi-alpha`。
-4. Framework Preset 选择 **Next.js**。
-5. Install Command 使用 `pnpm install --frozen-lockfile`。
-6. Build Command 使用 `pnpm next build`。
-7. 部署完成后，将 Vercel 生成的域名填回 GitHub 仓库 About 的 Website。
-
-### Vercel 环境变量建议
+生产或演示环境可按需配置以下环境变量：
 
 | 变量 | 说明 |
 |---|---|
@@ -158,26 +139,26 @@ pnpm next build
 | `UPSTASH_REDIS_REST_TOKEN` | 生产环境分布式限流 Redis REST Token |
 | `TRUSTED_CLIENT_IP_HEADER` | 真实客户端 IP Header，默认 `x-forwarded-for` |
 | `DATA_SOURCE_COMPLIANCE_ACK` | 数据源授权确认版本，当前要求 `2026-06` |
-| `ALLOW_IN_MEMORY_RATE_LIMIT` | 仅单实例演示可设为 `true`，不建议正式公网使用 |
+| `ALLOW_IN_MEMORY_RATE_LIMIT` | 单实例演示环境可设为 `true`；正式公网环境建议使用分布式限流 |
 
-> 注意：Vercel Hobby 计划的函数执行时长有限。当前 `/api/analyze` 已按演示环境配置为 60 秒上限。完整多 Agent 辩论在真实模型较慢时可能需要 Pro 计划或后端任务队列。
+> 注意：Vercel Hobby 计划的函数执行时长有限。当前 `/api/analyze` 已按演示环境配置为 60 秒上限。完整多 Agent 辩论在真实模型较慢时可能需要更高执行时长或后端任务队列。
 
-### 最小可分享 Demo 环境变量
+## Mock 演示模式
 
-如果只是为了生成一个可以分享的演示链接，建议先使用模拟模式：
+如需在未配置真实模型 API Key 的情况下展示完整流程，可启用 Mock 模式：
 
-| 变量 | 建议值 |
+| 变量 | 示例值 |
 |---|---|
 | `ENABLE_MOCK_MODE` | `true` |
 | `ALLOW_IN_MEMORY_RATE_LIMIT` | `true` |
 | `DATA_SOURCE_COMPLIANCE_ACK` | `2026-06` |
-| `SEC_USER_AGENT` | `YuanQiAlpha/1.0 your-email@example.com` |
+| `SEC_USER_AGENT` | `YuanQiAlpha/1.0 contact@example.com` |
 
-这样访问者不用先配置大模型 API Key，也可以看到完整的模拟分析流程。正式公网使用时，应改为分布式限流、真实数据源授权和人工审核流程。
+Mock 模式仅用于产品演示和流程验证。正式公网使用时，应改为分布式限流、真实数据源授权和人工审核流程。
 
 ## 数据源与合规说明
 
-当前系统集成了多类公开数据源与可选 MCP 专业数据源。公网正式上线前，建议完成：
+当前系统集成了多类公开数据源与可选 MCP 专业数据源。正式用于公网或机构业务场景前，建议完成：
 
 - 数据源授权与频率限制确认
 - API Key 与 MCP token 脱敏
@@ -185,20 +166,10 @@ pnpm next build
 - “非投资建议 / 需人工确认”提示
 - 生产环境限流与日志保护
 
-## 对外宣传建议
+## 免责声明
 
-推荐口径：
-
-> 元启Alpha 是面向券商财富管理和投顾服务场景的多智能体 AI 投研辅助工作台，可辅助生成投研观点整理、风险提示和服务建议草稿，并保留分析过程用于复盘与合规留痕。
-
-不建议使用：
-
-- 自动荐股
-- 保证收益
-- 精准买卖点
-- 自动投资决策
-- 代客理财
+本项目输出内容仅用于研究辅助、产品演示、投资者教育或内部服务准备，不构成任何形式的投资建议、交易指令、收益承诺或代客理财服务。使用者应结合机构合规要求、客户适当性要求和人工复核流程审慎使用。
 
 ## License
 
-当前项目暂未声明开源许可证。仓库保持 Private 时仅供授权人员查看；若未来改为 Public，请先确认授权范围和 License。
+当前项目暂未声明开源许可证。除非另行获得授权，本仓库代码不授予复制、分发、修改或商业使用许可。
