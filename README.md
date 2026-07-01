@@ -147,6 +147,7 @@ pnpm next build
 
 | 变量 | 说明 |
 |---|---|
+| `ENABLE_MOCK_MODE` | 演示模式开关。设为 `true` 后，未配置用户模型 API Key 时使用内置模拟分析 |
 | `SEC_USER_AGENT` | SEC 请求标识，建议包含项目名和联系邮箱 |
 | `UPSTASH_REDIS_REST_URL` | 生产环境分布式限流 Redis REST 地址 |
 | `UPSTASH_REDIS_REST_TOKEN` | 生产环境分布式限流 Redis REST Token |
@@ -155,6 +156,19 @@ pnpm next build
 | `ALLOW_IN_MEMORY_RATE_LIMIT` | 仅单实例演示可设为 `true`，不建议正式公网使用 |
 
 > 注意：Vercel Hobby 计划的函数执行时长有限。当前 `/api/analyze` 已按演示环境配置为 60 秒上限。完整多 Agent 辩论在真实模型较慢时可能需要 Pro 计划或后端任务队列。
+
+### 最小可分享 Demo 环境变量
+
+如果只是为了生成一个可以分享的演示链接，建议先使用模拟模式：
+
+| 变量 | 建议值 |
+|---|---|
+| `ENABLE_MOCK_MODE` | `true` |
+| `ALLOW_IN_MEMORY_RATE_LIMIT` | `true` |
+| `DATA_SOURCE_COMPLIANCE_ACK` | `2026-06` |
+| `SEC_USER_AGENT` | `YuanQiAlpha/1.0 your-email@example.com` |
+
+这样访问者不用先配置大模型 API Key，也可以看到完整的模拟分析流程。正式公网使用时，应改为分布式限流、真实数据源授权和人工审核流程。
 
 ## 数据源与合规说明
 
