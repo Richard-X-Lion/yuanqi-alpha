@@ -3,7 +3,8 @@ import { isIP } from "node:net";
 
 type LookupResult = { address: string; family: number };
 type LookupFn = (hostname: string) => Promise<LookupResult[]>;
-type ResolveFn = (hostname: string) => Promise<string[]>;
+type DnsAnswer = string | { address: string; ttl?: number };
+type ResolveFn = (hostname: string) => Promise<DnsAnswer[]>;
 
 function isPrivateIpv4(address: string): boolean {
   const parts = address.split(".").map(Number);
@@ -78,16 +79,22 @@ export function parsePublicHttpsUrl(rawUrl: string, label = "外部服务"): URL
 
 export async function resolvePublicDns(
   hostname: string,
-  resolve4: ResolveFn = dnsResolve4,
-  resolve6: ResolveFn = dnsResolve6,
+  resolve4: ResolveFn = async (name) => dnsResolve4(name),
+  resolve6: ResolveFn = async (name) => dnsResolve6(name),
 ): Promise<LookupResult[]> {
   const [ipv4, ipv6] = await Promise.allSettled([resolve4(hostname), resolve6(hostname)]);
   const addresses: LookupResult[] = [];
   if (ipv4.status === "fulfilled") {
-    addresses.push(...ipv4.value.map((address) => ({ address, family: 4 })));
+    addresses.push(...ipv4.value.map((answer) => ({
+      address: typeof answer === "string" ? answer : answer.address,
+      family: 4,
+    })));
   }
   if (ipv6.status === "fulfilled") {
-    addresses.push(...ipv6.value.map((address) => ({ address, family: 6 })));
+    addresses.push(...ipv6.value.map((answer) => ({
+      address: typeof answer === "string" ? answer : answer.address,
+      family: 6,
+    })));
   }
   if (addresses.length === 0 && ipv4.status === "rejected" && ipv6.status === "rejected") {
     throw ipv4.reason;
@@ -116,7 +123,11 @@ export async function assertSafePublicUrl(
     throw new Error(`${label}域名无法解析`);
   }
 
-  if (addresses.length === 0 || addresses.some(({ address }) => isPrivateOrReservedIp(address))) {
-    throw new Error(`${label}解析到了不允许访问的网络地址`);
+  const blockedAddresses = addresses
+    .filter(({ address }) => isPrivateOrReservedIp(address))
+    .map(({ address }) => address || "无效地址");
+  if (addresses.length === 0 || blockedAddresses.length > 0) {
+    const detail = blockedAddresses.length > 0 ? `：${blockedAddresses.slice(0, 3).join(", ")}` : "";
+    throw new Error(`${label}解析到了不允许访问的网络地址（${hostname}${detail}）`);
   }
 }

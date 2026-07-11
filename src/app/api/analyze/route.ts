@@ -21,7 +21,7 @@ import { StockDataResult } from "@/lib/data/types";
 import { stripCodeBlocks, streamLLM, callLLMWithRetry } from "@/lib/agents/llm";
 import { parseAgentResponse } from "@/lib/agents/parser";
 import { MCPDataSource, MCPServerConfig } from "@/lib/mcp";
-import { assertSafePublicUrl } from "@/lib/security/public-url";
+import { assertSafeExternalUrl } from "@/lib/security/safe-fetch";
 import { consumeAnalysisQuota, getClientId } from "@/lib/security/rate-limit";
 import { confidenceToVoteWeight, resolveWeightedConsensus, stanceToAction, type DecidableStance } from "@/lib/agents/decision";
 import { DEADLOCK_THRESHOLD, MAX_DEBATE_ROUNDS, hasDebateDeadlock, nextNoChangeStreak } from "@/lib/agents/debate-rules";
@@ -100,14 +100,18 @@ function perCallSignal(requestSignal: AbortSignal, timeoutMs = 120_000): AbortSi
 async function validateExternalUrls(config: UserApiConfig): Promise<void> {
   const targets = new Map<string, string>();
   for (const [agentId, llmConfig] of Object.entries(config.llm || {})) {
-    if (llmConfig?.baseUrl) targets.set(llmConfig.baseUrl, `${agentId} 模型服务`);
+    if (llmConfig?.baseUrl) {
+      const label = `${agentId} 模型服务`;
+      const existing = targets.get(llmConfig.baseUrl);
+      targets.set(llmConfig.baseUrl, existing ? `${existing} / ${label}` : label);
+    }
   }
   if (config.mcp?.enabled) {
     for (const server of (config.mcp.servers || []).filter((item) => item.enabled)) {
       if (server.url) targets.set(server.url, `MCP ${server.name || server.id}`);
     }
   }
-  await Promise.all([...targets].map(([url, label]) => assertSafePublicUrl(url, label)));
+  await Promise.all([...targets].map(([url, label]) => assertSafeExternalUrl(url, label)));
 }
 
 // ============================================================

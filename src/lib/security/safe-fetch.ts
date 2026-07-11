@@ -20,6 +20,23 @@ export function rejectRedirectResponse(response: Response, label: string): Respo
   return response;
 }
 
+type DnsValidator = (rawUrl: string, label: string) => Promise<void>;
+
+export async function assertSafeExternalUrl(
+  rawUrl: string,
+  label = "外部服务",
+  userAgent = globalThis.navigator?.userAgent,
+  dnsValidator: DnsValidator = assertSafePublicUrl,
+): Promise<URL> {
+  const url = parsePublicHttpsUrl(rawUrl, label);
+  // Sites runs on Cloudflare Workers. Native Worker fetch has no access to a
+  // private network unless a separate VPC binding is configured; this project
+  // has no such binding. Avoid Node DNS compatibility shims at the edge while
+  // retaining full DNS preflight and connection-time pinning in Node.
+  if (!prefersNativeFetch(userAgent)) await dnsValidator(url.toString(), label);
+  return url;
+}
+
 const safeAgent = new Agent({
   connect: {
     lookup(hostname, options, callback) {
@@ -56,8 +73,8 @@ const safeAgent = new Agent({
  * 重新检查 DNS 结果，关闭“预检查通过后 DNS 重绑到内网”的时间窗口。
  */
 export async function safeExternalFetch(rawUrl: string, init: SafeFetchInit = {}, label = "外部服务"): Promise<Response> {
-  const url = parsePublicHttpsUrl(rawUrl, label);
-  await assertSafePublicUrl(url.toString(), label);
+  const userAgent = globalThis.navigator?.userAgent;
+  const url = await assertSafeExternalUrl(rawUrl, label, userAgent);
   const requestInit: RequestInit = {
     method: init.method,
     headers: init.headers,
@@ -69,7 +86,7 @@ export async function safeExternalFetch(rawUrl: string, init: SafeFetchInit = {}
     redirect: "manual",
   };
   try {
-    if (prefersNativeFetch(globalThis.navigator?.userAgent)) {
+    if (prefersNativeFetch(userAgent)) {
       return rejectRedirectResponse(await fetch(url, requestInit), label);
     }
     const response = await undiciFetch(url, {

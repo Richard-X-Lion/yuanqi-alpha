@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertSafePublicUrl, parsePublicHttpsUrl, resolvePublicDns } from "./public-url";
-import { isUnsupportedAlpnError, prefersNativeFetch, rejectRedirectResponse, safeExternalFetch } from "./safe-fetch";
+import {
+  assertSafeExternalUrl,
+  isUnsupportedAlpnError,
+  prefersNativeFetch,
+  rejectRedirectResponse,
+  safeExternalFetch,
+} from "./safe-fetch";
 
 test("requires HTTPS and rejects local targets", () => {
   assert.throws(() => parsePublicHttpsUrl("http://api.example.com"), /HTTPS/);
@@ -45,6 +51,13 @@ test("resolves A and AAAA records without node:dns.lookup", async () => {
     async () => { throw new Error("ENODATA"); },
   );
   assert.deepEqual(ipv4Only, [{ address: "8.8.4.4", family: 4 }]);
+
+  const workerTtlShape = await resolvePublicDns(
+    "api.example.com",
+    async () => [{ address: "8.8.8.8", ttl: 60 }],
+    async () => [{ address: "2001:4860:4860::8888", ttl: 60 }],
+  );
+  assert.deepEqual(workerTtlShape, dualStack);
 });
 
 test("connection-time safe fetch rejects a private IP before opening a socket", async () => {
@@ -58,6 +71,19 @@ test("uses the native fetch path in Cloudflare Workers", () => {
   assert.equal(prefersNativeFetch("Cloudflare-Workers"), true);
   assert.equal(prefersNativeFetch("workerd/1.0"), true);
   assert.equal(prefersNativeFetch("Node.js/22"), false);
+});
+
+test("Workers skip Node DNS preflight but still reject literal private targets", async () => {
+  let dnsChecks = 0;
+  const dnsValidator = async () => { dnsChecks += 1; };
+  await assertSafeExternalUrl("https://api.example.com/v1", "测试服务", "Cloudflare-Workers", dnsValidator);
+  assert.equal(dnsChecks, 0);
+  await assertSafeExternalUrl("https://api.example.com/v1", "测试服务", "Node.js/22", dnsValidator);
+  assert.equal(dnsChecks, 1);
+  await assert.rejects(
+    () => assertSafeExternalUrl("https://127.0.0.1/private", "测试服务", "Cloudflare-Workers", dnsValidator),
+    /私有|环回|保留/,
+  );
 });
 
 test("recognizes the Worker ALPN compatibility error", () => {
