@@ -13,6 +13,13 @@ export function isUnsupportedAlpnError(error: unknown): boolean {
   return /ALPNProtocols.+not implemented/i.test(`${outer?.message || ""} ${outer?.cause?.message || ""}`);
 }
 
+export function rejectRedirectResponse(response: Response, label: string): Response {
+  if (response.type === "opaqueredirect" || (response.status >= 300 && response.status < 400)) {
+    throw new Error(`${label}连接失败：目标服务返回了不允许的重定向`);
+  }
+  return response;
+}
+
 const safeAgent = new Agent({
   connect: {
     lookup(hostname, options, callback) {
@@ -56,30 +63,36 @@ export async function safeExternalFetch(rawUrl: string, init: SafeFetchInit = {}
     headers: init.headers,
     body: init.body,
     signal: init.signal,
-    redirect: "error",
+    // Cloudflare Workers only implements "follow" and "manual". We use
+    // "manual" and reject every redirect response below so credentials are
+    // never forwarded to an unvalidated destination.
+    redirect: "manual",
   };
   try {
     if (prefersNativeFetch(globalThis.navigator?.userAgent)) {
-      return await fetch(url, requestInit);
+      return rejectRedirectResponse(await fetch(url, requestInit), label);
     }
     const response = await undiciFetch(url, {
       method: init.method,
       headers: init.headers,
       body: init.body,
       signal: init.signal,
-      redirect: "error",
+      redirect: "manual",
       dispatcher: safeAgent,
     });
-    return response as unknown as Response;
+    return rejectRedirectResponse(response as unknown as Response, label);
   } catch (error) {
     if (isUnsupportedAlpnError(error)) {
+      let nativeResponse: Response;
       try {
-        return await fetch(url, requestInit);
+        nativeResponse = await fetch(url, requestInit);
       } catch (nativeError) {
         throw new Error(`${label}连接失败：托管环境无法建立兼容的 HTTPS 连接`, { cause: nativeError });
       }
+      return rejectRedirectResponse(nativeResponse, label);
     }
     const outer = error as Error & { cause?: Error & { code?: string } };
+    if (outer.message.startsWith(`${label}连接失败：`)) throw outer;
     const cause = outer.cause;
     const detail = cause?.code === "EACCES"
       ? "域名解析到了不允许的网络地址"

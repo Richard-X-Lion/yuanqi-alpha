@@ -63,7 +63,7 @@ async function consumeDistributedQuota(clientId: string, fetchImpl: typeof fetch
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(["EVAL", INCREMENT_SCRIPT, "1", key, String(WINDOW_MS)]),
       signal: AbortSignal.timeout(3_000),
-      redirect: "error",
+      redirect: "manual",
     });
     if (!response.ok) throw new Error(`Redis rate limit failed (${response.status})`);
     const payload = await response.json() as { result?: [number | string, number | string] };

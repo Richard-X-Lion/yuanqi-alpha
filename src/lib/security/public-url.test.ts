@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertSafePublicUrl, parsePublicHttpsUrl } from "./public-url";
-import { isUnsupportedAlpnError, prefersNativeFetch, safeExternalFetch } from "./safe-fetch";
+import { isUnsupportedAlpnError, prefersNativeFetch, rejectRedirectResponse, safeExternalFetch } from "./safe-fetch";
 
 test("requires HTTPS and rejects local targets", () => {
   assert.throws(() => parsePublicHttpsUrl("http://api.example.com"), /HTTPS/);
@@ -44,4 +44,13 @@ test("uses the native fetch path in Cloudflare Workers", () => {
 test("recognizes the Worker ALPN compatibility error", () => {
   assert.equal(isUnsupportedAlpnError(new Error("The options.ALPNProtocols option is not implemented")), true);
   assert.equal(isUnsupportedAlpnError(new Error("TLS handshake failed")), false);
+});
+
+test("manual redirect handling rejects every redirect response", () => {
+  assert.throws(
+    () => rejectRedirectResponse(new Response(null, { status: 302 }), "测试服务"),
+    /不允许的重定向/,
+  );
+  const ok = new Response("ok", { status: 200 });
+  assert.equal(rejectRedirectResponse(ok, "测试服务"), ok);
 });
