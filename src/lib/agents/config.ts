@@ -28,12 +28,6 @@ export interface UserLLMConfig {
   model?: string;
 }
 
-export interface UserDataConfig {
-  enabled?: boolean;
-  apiKey?: string;
-  baseUrl?: string;
-}
-
 export interface MCPServerConfig {
   id: string;
   name: string;
@@ -48,7 +42,6 @@ export interface UserApiConfig {
     capital?: UserLLMConfig;
     moderator?: UserLLMConfig;
   };
-  data?: UserDataConfig;
   mcp?: {
     enabled: boolean;
     servers: MCPServerConfig[];

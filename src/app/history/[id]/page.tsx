@@ -180,27 +180,19 @@ export default function HistoryDetailPage() {
         {hasFullAnalysis && fa && (
           <>
             {/* Data Status */}
-            <CollapsibleSection title="数据获取状态" icon="📡" accentColor="#3b82f6" defaultOpen={false}>
-              <div className="flex flex-wrap gap-3 pt-2">
-                <span className={`text-xs font-mono ${fa.dataStatus.marketData ? 'text-buy' : 'text-sell'}`}>
-                  {fa.dataStatus.marketData ? '✓' : '✗'} 行情数据
+            <CollapsibleSection title="数据来源" icon="📡" accentColor="#3b82f6" defaultOpen={false}>
+              <div className="flex flex-col gap-2 pt-2">
+                <span className={`text-xs font-mono ${fa.isMockMode ? 'text-hold' : 'text-buy'}`}>
+                  {fa.isMockMode ? '△ 平台模拟数据（非真实）' : '✓ 仅使用用户 MCP 数据'}
                 </span>
-                <span className={`text-xs font-mono ${fa.dataStatus.financialData ? 'text-buy' : fa.dataStatus.filingEvidenceCount ? 'text-hold' : 'text-sell'}`}>
-                  {fa.dataStatus.financialData ? '✓' : fa.dataStatus.filingEvidenceCount ? '△' : '✗'}{' '}
-                  {fa.dataStatus.market && fa.dataStatus.market !== 'CN'
-                    ? fa.dataStatus.financialData
-                      ? `标准化财务数据${fa.dataStatus.financialSource ? `(${fa.dataStatus.financialSource})` : ''}`
-                      : fa.dataStatus.filingEvidenceCount
-                        ? `官方财报公告(${fa.dataStatus.filingEvidenceCount}份)`
-                        : '标准化财务资料'
-                    : '财务数据'}
-                </span>
-                <span className={`text-xs font-mono ${fa.dataStatus.newsCount > 0 ? 'text-buy' : 'text-sell'}`}>
-                  {fa.dataStatus.newsCount > 0 ? '✓' : '✗'} 新闻资讯({fa.dataStatus.newsCount}条)
-                </span>
-                <span className={`text-xs font-mono ${fa.dataStatus.fundFlowData ? 'text-buy' : 'text-sell'}`}>
-                  {fa.dataStatus.fundFlowData ? '✓' : '✗'} 资金流向
-                </span>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(fa.dataStatus.mcpStatus?.sources || []).map((source, index) => (
+                    <div key={`${source.serverName}-${source.toolName}-${source.kind}-${index}`} className="rounded border border-terminal-border/40 bg-terminal-bg/50 p-2">
+                      <div className="text-xs font-medium text-foreground">{source.label}</div>
+                      <div className="mt-1 text-[11px] text-terminal-muted">来源：{source.serverName} / {source.toolName}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CollapsibleSection>
 

@@ -115,9 +115,16 @@ export interface DataStatus {
   framework?: string;
   mcpStatus?: {
     enabled: boolean;
+    configured: number;
     connected: number;
     failed: number;
     dataTypes: string[];
+    sources: Array<{
+      kind: string;
+      label: string;
+      serverName: string;
+      toolName: string;
+    }>;
   };
 }
 

@@ -33,8 +33,9 @@
 - 环境变量：`DEEPSEEK_API_KEY` / `DASHSCOPE_API_KEY` / `VOLCENGINE_API_KEY`
 - 基本面Agent启用 DeepSeek thinking 模式 (budget_tokens: 32000)
 - Mock模式：环境变量未设置时返回预设数据，前端显示「模拟模式」徽章
-- 美股免费基本面数据使用 SEC Company Facts (XBRL)，生产环境需配置包含有效联系方式的 `SEC_USER_AGENT`
-- 港股免费基本面回退只提供 HKEXnews 发行人财报公告入口；未结构化抽取的数字不得进入指标计算
+- 真实分析必须启用用户自行配置的 MCP 数据源；平台不提供或抓取内置行情、新闻、财报、研报或公告
+- 未配置完整模型或可用 MCP 时只能运行明确标记的模拟模式
+- 每项 MCP 数据必须保留 MCP 服务名与工具名，界面和提示词均不得把用户 MCP 数据标记为平台或官方数据
 
 ## 目录结构
 
@@ -102,3 +103,4 @@ SSE流式接口，接收市场和股票名称/代码，返回多智能体分析�
 - LLM调用通过直接fetch各平台API（非SDK），后端only
 - 禁止在前端代码中直接调用LLM
 - SSE流式输出优先
+- 真实金融数据只能来自用户 MCP；平台仅做 HTTPS、公网地址和连接安全检查

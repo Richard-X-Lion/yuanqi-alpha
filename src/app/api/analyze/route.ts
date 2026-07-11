@@ -18,10 +18,6 @@ import {
   buildArbitrationPrompt,
 } from "@/lib/agents/prompts";
 import { StockDataResult } from "@/lib/data/types";
-import {
-  fetchAllStockData,
-  getStockNameByCode,
-} from "@/lib/data/stock";
 import { stripCodeBlocks, streamLLM, callLLMWithRetry } from "@/lib/agents/llm";
 import { parseAgentResponse } from "@/lib/agents/parser";
 import { MCPDataSource, MCPServerConfig } from "@/lib/mcp";
@@ -29,10 +25,8 @@ import { assertSafePublicUrl } from "@/lib/security/public-url";
 import { consumeAnalysisQuota, getClientId } from "@/lib/security/rate-limit";
 import { confidenceToVoteWeight, resolveWeightedConsensus, stanceToAction, type DecidableStance } from "@/lib/agents/decision";
 import { DEADLOCK_THRESHOLD, MAX_DEBATE_ROUNDS, hasDebateDeadlock, nextNoChangeStreak } from "@/lib/agents/debate-rules";
-import { parseMarket, isValidSecurityInput, MARKET_DEFINITIONS } from "@/lib/markets/types";
-import { resolveSecurity } from "@/lib/markets/security";
-import { fetchGlobalStockData } from "@/lib/data/global";
-import { assertDataSourceCompliance } from "@/lib/data/compliance";
+import { resolveAnalysisMode } from "@/lib/agents/analysis-mode";
+import { parseMarket, isValidSecurityInput, MARKET_DEFINITIONS, normalizeSecurityInput } from "@/lib/markets/types";
 
 // Vercel Hobby currently supports up to 60s for a Node.js route function.
 // For full multi-agent analysis in production, consider a Pro plan or moving
@@ -50,21 +44,21 @@ const MOCK_ANALYSES: Record<string, Record<string, unknown>> = {
     reasons: ["营收增长率保持15%以上，净利润率稳居行业前三，ROE达22%", "当前PE为28倍，处于近5年35%分位，估值仍有提升空间", "品牌护城河深厚，市场份额超过30%，定价权极强"],
     evidence: ["ROE 22% > 行业均值12%", "PE 28x 近5年35%分位", "市占率>30%"],
     reservations: "宏观经济下行可能影响高端消费需求",
-    analysis: `**立场：看多(BULLISH)**\n\n**核心论据：**\n1. 营收增长率保持15%以上，净利润率稳居行业前三，ROE达22%\n2. 当前PE为28倍，处于近5年35%分位，估值仍有提升空间\n3. 品牌护城河深厚，市场份额超过30%\n\n**基本面综合评分：8/10**\n\n[模拟模式 - API Key未配置]`,
+    analysis: `**立场：看多(BULLISH)**\n\n**核心论据：**\n1. 营收增长率保持15%以上，净利润率稳居行业前三，ROE达22%\n2. 当前PE为28倍，处于近5年35%分位，估值仍有提升空间\n3. 品牌护城河深厚，市场份额超过30%\n\n**基本面综合评分：8/10**\n\n[模拟模式 - 模型或用户 MCP 未完整配置]`,
   },
   sentiment: {
     stance: "BULLISH", confidence: 7, valid: true,
     reasons: ["恐慌贪婪指数72，处于贪婪区间，市场情绪偏暖", "近30天券商研报12篇，10篇买入评级", "行业政策利好频出，监管层多次表态支持消费升级"],
     evidence: ["恐慌贪婪指数72", "研报买入率83%", "3项政策利好"],
     reservations: "市场情绪过热可能引发短期回调",
-    analysis: `**立场：看多(BULLISH)**\n\n**核心论据：**\n1. 恐慌贪婪指数72，处于贪婪区间，市场情绪偏暖\n2. 近30天券商研报12篇，10篇买入评级\n3. 行业政策利好频出\n\n**情绪面综合评分：7/10**\n\n[模拟模式 - API Key未配置]`,
+    analysis: `**立场：看多(BULLISH)**\n\n**核心论据：**\n1. 恐慌贪婪指数72，处于贪婪区间，市场情绪偏暖\n2. 近30天券商研报12篇，10篇买入评级\n3. 行业政策利好频出\n\n**情绪面综合评分：7/10**\n\n[模拟模式 - 模型或用户 MCP 未完整配置]`,
   },
   capital: {
     stance: "NEUTRAL", confidence: 6, valid: true,
     reasons: ["近5日主力资金净流入2.3亿，但北向资金小幅净流出0.8亿", "融资余额环比增长3.2%，杠杆资金温和入场", "SHIBOR利率保持低位，市场流动性宽松"],
     evidence: ["主力净流入2.3亿", "北向净流出0.8亿", "融资余额+3.2%"],
     reservations: "北向资金流出趋势需持续关注",
-    analysis: `**立场：中性(NEUTRAL)**\n\n**核心论据：**\n1. 近5日主力资金净流入2.3亿，但北向资金小幅净流出0.8亿\n2. 融资余额环比增长3.2%，杠杆资金温和入场\n3. SHIBOR利率保持低位，市场流动性宽松\n\n**资金面综合评分：6/10**\n\n[模拟模式 - API Key未配置]`,
+    analysis: `**立场：中性(NEUTRAL)**\n\n**核心论据：**\n1. 近5日主力资金净流入2.3亿，但北向资金小幅净流出0.8亿\n2. 融资余额环比增长3.2%，杠杆资金温和入场\n3. SHIBOR利率保持低位，市场流动性宽松\n\n**资金面综合评分：6/10**\n\n[模拟模式 - 模型或用户 MCP 未完整配置]`,
   },
 };
 
@@ -81,7 +75,7 @@ function buildMockModeratorReport(action: string, confidence: number, currency: 
     : action === "SELL"
       ? `${(referencePrice * (1 - move)).toFixed(2)} ${currency}`
       : `${(referencePrice * 0.95).toFixed(2)}-${(referencePrice * 1.05).toFixed(2)} ${currency}`;
-  return `【投资决策】${action}\n【置信度】${confidence}%\n【目标价位】${target}（模拟情景区间）\n【风险等级】中\n【核心逻辑】\n1. 系统依据三位Agent的有效观点与加权共识生成方向\n2. 主持人仅汇总证据，不增加新的投票意见\n【关键风险】\n1. 当前为开发模拟数据，不能用于真实交易\n2. 模拟目标价不代表真实估值\n【操作建议】\n等待真实数据与模型配置完成后重新分析；当前计价币种为${currency}。\n\n[开发模拟模式]`;
+  return `【投资决策】${action}\n【置信度】${confidence}%\n【目标价位】${target}（模拟情景区间）\n【风险等级】中\n【核心逻辑】\n1. 系统依据三位Agent的有效观点与加权共识生成方向\n2. 主持人仅汇总证据，不增加新的投票意见\n【关键风险】\n1. 当前为开发模拟数据，不能用于真实交易\n2. 模拟目标价不代表真实估值\n【操作建议】\n等待用户 MCP 数据与模型配置完成后重新分析；当前计价币种为${currency}。\n\n[开发模拟模式]`;
 }
 
 // ============================================================
@@ -107,9 +101,6 @@ async function validateExternalUrls(config: UserApiConfig): Promise<void> {
   const targets = new Map<string, string>();
   for (const [agentId, llmConfig] of Object.entries(config.llm || {})) {
     if (llmConfig?.baseUrl) targets.set(llmConfig.baseUrl, `${agentId} 模型服务`);
-  }
-  if (config.data?.enabled && config.data.baseUrl) {
-    targets.set(config.data.baseUrl, "自定义数据源");
   }
   if (config.mcp?.enabled) {
     for (const server of (config.mcp.servers || []).filter((item) => item.enabled)) {
@@ -147,36 +138,21 @@ export async function POST(request: NextRequest) {
     return jsonError("请求过于频繁，请稍后再试", 429, { "Retry-After": String(quota.retryAfterSeconds) });
   }
 
-  let security;
-  try {
-    security = await resolveSecurity(stockInput, market);
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : "证券识别失败", 400);
-  }
-  const stockCode = security.code;
+  const stockCode = normalizeSecurityInput(stockInput, market);
   const marketDefinition = MARKET_DEFINITIONS[market];
   const agents = getAgentsForMarket(market);
 
   const rawConfig = body.apiConfig || body.userApiConfig;
   const userApiConfig: UserApiConfig = rawConfig && typeof rawConfig === "object" ? rawConfig as UserApiConfig : {};
-  const isMockMode = process.env.ENABLE_MOCK_MODE === "true" && !Object.values(userApiConfig.llm || {}).some((item) => item?.apiKey?.trim());
-
-  if (!isMockMode) {
-    try {
-      assertDataSourceCompliance();
-    } catch (error) {
-      return jsonError(error instanceof Error ? error.message : "数据源合规状态无效", 503);
-    }
-  }
-
   const missingConfigs: string[] = [];
   for (const agent of agents) {
     if (!isAgentConfigured(agent.id, userApiConfig.llm)) missingConfigs.push(agent.name);
   }
   if (!isAgentConfigured("moderator", userApiConfig.llm)) missingConfigs.push("主持人");
-  if (!isMockMode && missingConfigs.length > 0) {
-    return jsonError(`以下 Agent 未配置模型名称或 API Key：${missingConfigs.join("、")}。MCP 可选，但四个大模型必须完成配置。`, 400);
-  }
+  const enabledMcpServers = userApiConfig.mcp?.enabled
+    ? (userApiConfig.mcp.servers || []).filter((server) => server.enabled && server.url?.trim()).slice(0, 5)
+    : [];
+  const { isMockMode, reasons: mockReasons } = resolveAnalysisMode(missingConfigs, enabledMcpServers.length);
 
   try {
     if (!isMockMode) await validateExternalUrls(userApiConfig);
@@ -202,23 +178,24 @@ export async function POST(request: NextRequest) {
 
       try {
         if (isMockMode) {
-          safeEnqueue(send("info", { mockMode: true, message: "开发模拟模式已启用。" }));
+          safeEnqueue(send("info", { mockMode: true, message: `模拟模式：${mockReasons.join("；")}。模拟数据不代表真实市场。` }));
         }
 
         // ==========================================
         // Phase 1: Data Fetching
         // ==========================================
-        safeEnqueue(send("phase", { phase: "data_fetch", message: "获取实时数据", status: "running" }));
+        safeEnqueue(send("phase", { phase: "data_fetch", message: isMockMode ? "加载模拟数据" : "读取用户 MCP 数据", status: "running" }));
 
         let stockData: StockDataResult;
+        let connectedMcpCount = 0;
         if (isMockMode) {
           stockData = {
             market: {
-              code: stockCode, name: market === "CN" ? getStockNameByCode(stockCode) : security.name, price: market === "CN" ? 1850.5 : 200.5,
+              code: stockCode, name: stockInput, price: market === "CN" ? 1850.5 : 200.5,
               changePct: 1.23, pe: 28.5, pb: 6.5, totalMv: 23200, circMv: 23200,
               turnoverRate: 0.45, amount: 85.6, high52w: 1920, low52w: 1480,
               volume: 4620000, open: market === "CN" ? 1835.0 : 198.0, high: market === "CN" ? 1860.0 : 202.0, low: market === "CN" ? 1830.0 : 197.0, prevClose: market === "CN" ? 1828.0 : 199.0,
-              currency: marketDefinition.currency, exchange: security.exchange,
+              currency: marketDefinition.currency, exchange: marketDefinition.shortLabel,
             },
             financial: market === "CN" ? { roe: 22.5, netProfitMargin: 48.3, grossMargin: 89.8, revenueGrowth: 15.2, profitGrowth: 18.6, debtRatio: 24.8, eps: 62.5, bvps: 280.3, revenue: 1505.6, netProfit: 747.3, reportDate: "2025-03-31" } : null,
             fundFlow: market === "CN" ? {
@@ -233,75 +210,83 @@ export async function POST(request: NextRequest) {
               ],
             } : null,
             news: market === "CN" ? [
-              { title: `${getStockNameByCode(stockCode)}相关板块获政策利好支持`, date: TODAY, summary: "监管层发布最新政策，支持相关行业发展", source: "模拟" },
-              { title: `机构调研${getStockNameByCode(stockCode)}频次上升`, date: TODAY, summary: "近30天机构调研次数环比增长25%", source: "模拟" },
-              { title: `${getStockNameByCode(stockCode)}发布业绩预告超预期`, date: TODAY, summary: "公司预计上半年净利润同比增长20%-30%", source: "模拟" },
+              { title: `${stockInput}相关板块获政策利好支持`, date: TODAY, summary: "监管层发布最新政策，支持相关行业发展", source: "平台模拟数据（非真实）" },
+              { title: `机构调研${stockInput}频次上升`, date: TODAY, summary: "近30天机构调研次数环比增长25%", source: "平台模拟数据（非真实）" },
+              { title: `${stockInput}发布业绩预告超预期`, date: TODAY, summary: "公司预计上半年净利润同比增长20%-30%", source: "平台模拟数据（非真实）" },
             ] : [
-              { title: `${security.name} 公布最新季度经营进展`, date: TODAY, summary: "市场正在评估收入增长、利润率与管理层指引", source: "模拟" },
-              { title: `分析师更新 ${security.name} 预期`, date: TODAY, summary: "目标价与盈利预测存在分歧，需核对原始研报", source: "模拟" },
-              { title: `${security.name} 近期交易活跃度变化`, date: TODAY, summary: "成交量与波动率指标出现变化，暂不代表确定方向", source: "模拟" },
+              { title: `${stockInput} 公布最新季度经营进展`, date: TODAY, summary: "市场正在评估收入增长、利润率与管理层指引", source: "平台模拟数据（非真实）" },
+              { title: `分析师更新 ${stockInput} 预期`, date: TODAY, summary: "目标价与盈利预测存在分歧，需核对原始研报", source: "平台模拟数据（非真实）" },
+              { title: `${stockInput} 近期交易活跃度变化`, date: TODAY, summary: "成交量与波动率指标出现变化，暂不代表确定方向", source: "平台模拟数据（非真实）" },
             ],
             webNews: [],
             dataStatus: { market: true, financial: market === "CN", news: true, fundFlow: market === "CN", webNews: false },
             globalMetrics: market === "CN" ? undefined : { observations: 250, return20d: 4.2, return60d: 8.5, return250d: 15.3, annualizedVolatility: 24.5, maxDrawdown: -18.2, sma20: 198.3, sma60: 191.7, rsi14: 58, volumeRatio5To20: 1.12, periodStart: "2025-06-20", periodEnd: TODAY },
           };
         } else {
-          // Pass user data config if provided and enabled
-          const userDataConfig = userApiConfig.data?.enabled ? userApiConfig.data : undefined;
-          stockData = market === "CN"
-            ? await fetchAllStockData(stockCode, request.headers, userDataConfig)
-            : await fetchGlobalStockData(security, request.headers);
-
-          // Fetch MCP data if enabled
-          const mcpServers = userApiConfig.mcp?.enabled
-            ? (userApiConfig.mcp.servers || []).filter((s: MCPServerConfig) => s.enabled && s.url).slice(0, 5)
-            : [];
-          if (mcpServers.length > 0) {
-            safeEnqueue(send("info", { message: `正在连接 ${mcpServers.length} 个MCP数据源...` }));
-            const mcpSource = new MCPDataSource();
+          safeEnqueue(send("info", { message: `正在安全连接 ${enabledMcpServers.length} 个用户 MCP 数据源...` }));
+          const mcpSource = new MCPDataSource();
+          for (const server of enabledMcpServers as MCPServerConfig[]) {
             try {
-              for (const server of mcpServers) {
-                try {
-                  await mcpSource.registerServer(server);
-                } catch (e) {
-                  console.log(`[MCP] Failed to register ${server.name}: ${e instanceof Error ? e.message : String(e)}`);
-                }
-              }
-              const stockName = stockData.market?.name;
-              const mcpResult = await mcpSource.fetchStockData(stockCode, stockName, marketDefinition.label);
-              if (Object.keys(mcpResult).length > 0) {
-                stockData.mcpData = mcpResult;
-                safeEnqueue(send("info", { message: `MCP数据源已接入，获取到 ${Object.keys(mcpResult).length} 类数据` }));
-              }
-            } catch (e) {
-              console.log(`[MCP] Data fetch failed: ${e instanceof Error ? e.message : String(e)}`);
+              await mcpSource.registerServer(server);
+              connectedMcpCount += 1;
+            } catch (error) {
+              console.log(`[MCP] Failed to register ${server.name}: ${error instanceof Error ? error.message : String(error)}`);
             }
           }
+          if (connectedMcpCount === 0) throw new Error("所有用户 MCP 数据源均连接失败；真实分析已停止，平台不会回退到内置数据源。");
+
+          const mcpResult = await mcpSource.fetchStockData(stockCode, stockInput, marketDefinition.label);
+          if (mcpResult.entries.length === 0) throw new Error("用户 MCP 未返回可用于股票分析的数据；真实分析已停止。");
+          const kinds = new Set(mcpResult.entries.map((entry) => entry.kind));
+          stockData = {
+            market: null,
+            financial: null,
+            fundFlow: null,
+            news: [],
+            webNews: [],
+            dataStatus: {
+              market: kinds.has("market"),
+              financial: kinds.has("financial"),
+              news: kinds.has("news") || kinds.has("research") || kinds.has("announcement"),
+              fundFlow: kinds.has("fundFlow"),
+              webNews: false,
+            },
+            mcpData: mcpResult,
+          };
+          safeEnqueue(send("info", { message: `已从用户 MCP 获取 ${mcpResult.entries.length} 项带来源数据。` }));
         }
 
-        stockName = stockData.market?.name || security.name;
+        stockName = stockData.market?.name || stockInput;
         // Use prevClose (yesterday's close price) as the baseline price
         prevClose = stockData.market?.prevClose || 0;
 
         // Build MCP status for frontend display
-        const mcpServers = userApiConfig.mcp?.enabled
-          ? (userApiConfig.mcp.servers || []).filter((s: MCPServerConfig) => s.enabled && s.url).slice(0, 5)
-          : [];
-        const mcpDataTypes = stockData.mcpData ? Object.keys(stockData.mcpData) : [];
+        const mcpEntries = stockData.mcpData?.entries || [];
+        const mcpDataTypes = [...new Set(mcpEntries.map((entry) => entry.label))];
+        const sources = isMockMode
+          ? [{ kind: "mock", label: "模拟数据", serverName: "平台模拟器", toolName: "固定样例（非真实）" }]
+          : mcpEntries.map((entry) => ({
+              kind: entry.kind,
+              label: entry.label,
+              serverName: entry.source.serverName,
+              toolName: entry.source.toolName,
+            }));
         const mcpStatus = {
-          enabled: mcpServers.length > 0,
-          connected: mcpDataTypes.length > 0 ? mcpServers.length : 0,
-          failed: mcpDataTypes.length > 0 ? 0 : mcpServers.length,
+          enabled: !isMockMode,
+          configured: enabledMcpServers.length,
+          connected: connectedMcpCount,
+          failed: isMockMode ? 0 : Math.max(0, enabledMcpServers.length - connectedMcpCount),
           dataTypes: mcpDataTypes,
+          sources,
         };
 
         safeEnqueue(send("data_loaded", {
           marketData: stockData.dataStatus.market,
           financialData: stockData.dataStatus.financial,
           filingEvidenceCount: stockData.filings?.length || 0,
-          financialSource: stockData.financial?.source || stockData.filings?.[0]?.source,
-          newsCount: stockData.news.length + (stockData.webNews?.length || 0),
-          webNewsCount: stockData.webNews?.length || 0,
+          financialSource: isMockMode ? "平台模拟数据（非真实）" : undefined,
+          newsCount: isMockMode ? stockData.news.length : mcpEntries.filter((entry) => ["news", "research", "announcement"].includes(entry.kind)).length,
+          webNewsCount: 0,
           fundFlowData: stockData.dataStatus.fundFlow,
           priceHistoryData: (stockData.globalMetrics?.observations || 0) > 0,
           stockName,
@@ -310,7 +295,7 @@ export async function POST(request: NextRequest) {
           market,
           marketLabel: marketDefinition.label,
           currency: stockData.market?.currency || marketDefinition.currency,
-          exchange: stockData.market?.exchange || security.exchange,
+          exchange: stockData.market?.exchange || marketDefinition.shortLabel,
           framework: marketDefinition.framework,
           mcpStatus,
         }));
@@ -708,7 +693,10 @@ export async function POST(request: NextRequest) {
           : "";
         const financialInfo = stockData.financial
           ? `\n财务估值依据：报告期${stockData.financial.reportDate}，EPS ${stockData.financial.eps}，每股净资产 ${stockData.financial.bvps}，营收增长 ${stockData.financial.revenueGrowth}%，净利润增长 ${stockData.financial.profitGrowth}%，ROE ${stockData.financial.roe}%`
-          : "\n财务估值依据：标准化财务数据缺失，目标价应采用更宽的情景区间并明确不确定性。";
+          : "\n财务估值依据：平台未提供标准化数据；只能使用各分析师从用户 MCP 数据中引用的内容。资料不足时应保持审慎并明确不确定性。";
+        const sourceInfo = (stockData.mcpData?.entries || [])
+          .map((entry) => `${entry.label}：用户 MCP「${entry.source.serverName}」/ ${entry.source.toolName}`)
+          .join("\n") || "平台模拟器：固定样例（非真实）";
 
         // 决策方向由已经校验的团队共识产生；主持人只负责汇总，不是第四个投票者。
         const action = resolvedConsensusStance ? stanceToAction(resolvedConsensusStance) : "HOLD";
@@ -723,6 +711,10 @@ export async function POST(request: NextRequest) {
           : "本次缺少有效现价，目标价位写“数据不足”，并说明缺少现价。";
 
         const moderatorPrompt = `以下是三位分析师对${marketDefinition.label}${stockCode}的分析和辩论全过程：${marketInfo}${financialInfo}
+
+数据来源清单：
+${sourceInfo}
+所有真实数据均由用户 MCP 提供，平台只做安全连接检查，不提供或背书数据。报告引用事实时必须保留 MCP 服务名与工具名，不得写成平台数据或官方数据。
 
 ${finalOpinions.map((o) => `=== ${o.name} (${o.stance}, 信心度${o.confidence}/10) ===\n初始分析：${o.analysis}\n核心论据：${o.reasons.join("；")}`).join("\n\n")}
 

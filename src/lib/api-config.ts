@@ -7,13 +7,6 @@ export interface LLMProviderConfig {
   model: string;       // Model name e.g. "deepseek-v4-pro"
 }
 
-export interface DataProviderConfig {
-  name: string;        // Display name e.g. "东方财富"
-  enabled: boolean;    // Whether to use this provider
-  apiKey: string;      // Optional API key
-  baseUrl: string;     // Optional base URL override
-}
-
 export interface MCPServerConfigItem {
   id: string;
   name: string;
@@ -28,7 +21,6 @@ export interface ApiConfig {
     capital: LLMProviderConfig;
     moderator: LLMProviderConfig;
   };
-  data: DataProviderConfig;
   mcp: {
     enabled: boolean;
     servers: MCPServerConfigItem[];
@@ -62,13 +54,6 @@ export const DEFAULT_LLM_CONFIGS: Record<string, LLMProviderConfig> = {
   },
 };
 
-export const DEFAULT_DATA_CONFIG: DataProviderConfig = {
-  name: "默认数据源",
-  enabled: false,
-  apiKey: "",
-  baseUrl: "",
-};
-
 export const DEFAULT_MCP_SERVERS: MCPServerConfigItem[] = [
   {
     id: "gildata-tool",
@@ -87,10 +72,10 @@ export const DEFAULT_MCP_SERVERS: MCPServerConfigItem[] = [
 const STORAGE_KEY = "yuanqi_alpha_api_config";
 const SECRET_STORAGE_KEY = "yuanqi_alpha_api_secrets";
 
-type ApiSecrets = Record<keyof ApiConfig["llm"], string> & { data: string };
+type ApiSecrets = Record<keyof ApiConfig["llm"], string>;
 
 function emptySecrets(): ApiSecrets {
-  return { fundamental: "", sentiment: "", capital: "", moderator: "", data: "" };
+  return { fundamental: "", sentiment: "", capital: "", moderator: "" };
 }
 
 export function loadConfig(): ApiConfig | null {
@@ -105,7 +90,6 @@ export function loadConfig(): ApiConfig | null {
       sentiment: config.llm?.sentiment?.apiKey || "",
       capital: config.llm?.capital?.apiKey || "",
       moderator: config.llm?.moderator?.apiKey || "",
-      data: config.data?.apiKey || "",
     };
     const secrets = secretsRaw
       ? { ...emptySecrets(), ...JSON.parse(secretsRaw) as Partial<ApiSecrets> }
@@ -122,7 +106,6 @@ export function loadConfig(): ApiConfig | null {
           capital: { ...config.llm.capital, apiKey: "" },
           moderator: { ...config.llm.moderator, apiKey: "" },
         },
-        data: { ...config.data, apiKey: "" },
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
     }
@@ -134,7 +117,6 @@ export function loadConfig(): ApiConfig | null {
         capital: { ...config.llm.capital, apiKey: secrets.capital },
         moderator: { ...config.llm.moderator, apiKey: secrets.moderator },
       },
-      data: { ...config.data, apiKey: secrets.data },
     };
   } catch {
     return null;
@@ -148,7 +130,6 @@ export function saveConfig(config: ApiConfig): void {
     sentiment: config.llm.sentiment.apiKey,
     capital: config.llm.capital.apiKey,
     moderator: config.llm.moderator.apiKey,
-    data: config.data.apiKey,
   };
   const persistedConfig: ApiConfig = {
     ...config,
@@ -158,7 +139,6 @@ export function saveConfig(config: ApiConfig): void {
       capital: { ...config.llm.capital, apiKey: "" },
       moderator: { ...config.llm.moderator, apiKey: "" },
     },
-    data: { ...config.data, apiKey: "" },
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedConfig));
   sessionStorage.setItem(SECRET_STORAGE_KEY, JSON.stringify(secrets));
@@ -172,7 +152,6 @@ export function buildDefaultConfig(): ApiConfig {
       capital: { ...DEFAULT_LLM_CONFIGS.capital },
       moderator: { ...DEFAULT_LLM_CONFIGS.moderator },
     },
-    data: { ...DEFAULT_DATA_CONFIG },
     mcp: {
       enabled: false,
       servers: DEFAULT_MCP_SERVERS.map(s => ({ ...s })),
@@ -193,7 +172,6 @@ export function getEffectiveConfig(): ApiConfig {
       capital: { ...defaults.llm.capital, ...saved.llm.capital },
       moderator: { ...defaults.llm.moderator, ...saved.llm.moderator },
     },
-    data: { ...defaults.data, ...saved.data },
     mcp: {
       enabled: saved.mcp?.enabled ?? false,
       servers: saved.mcp?.servers?.length

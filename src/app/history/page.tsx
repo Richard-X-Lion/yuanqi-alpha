@@ -6,7 +6,6 @@ import {
   loadHistory,
   deleteHistoryRecord,
   clearHistory,
-  updateCurrentPrices,
   calculateWinRate,
   calculateAgentWinRates,
   type AnalysisRecord,
@@ -33,12 +32,6 @@ function TrashIcon() {
 function EyeIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-  );
-}
-
-function RefreshIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
   );
 }
 
@@ -167,7 +160,6 @@ function AgentWinRateCard({ agent }: { agent: AgentWinRate }) {
 
 export default function HistoryPage() {
   const [records, setRecords] = useState<AnalysisRecord[]>([]);
-  const [isUpdating, setIsUpdating] = useState(false);
   const [marketFilter, setMarketFilter] = useState<'ALL' | MarketType>('ALL');
 
   useEffect(() => {
@@ -192,41 +184,6 @@ export default function HistoryPage() {
     setRecords([]);
   }, []);
 
-  const handleUpdatePrices = useCallback(async () => {
-    setIsUpdating(true);
-    try {
-      const history = loadHistory();
-      const needUpdate = history.filter((r) => r.analysisPrice > 0);
-      if (needUpdate.length === 0) {
-        alert('暂无可更新价格的有效记录');
-        return;
-      }
-
-      // Fetch current prices from API
-      const updates: Array<{ id: string; currentPrice: number }> = [];
-      for (const record of needUpdate) {
-        try {
-          const res = await fetch(`/api/stock/price?market=${record.market || 'CN'}&code=${encodeURIComponent(record.stockCode)}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.price) {
-              updates.push({ id: record.id, currentPrice: data.price });
-            }
-          }
-        } catch {
-          // Skip failed updates
-        }
-      }
-
-      if (updates.length > 0) {
-        updateCurrentPrices(updates);
-        setRecords(loadHistory());
-      }
-    } finally {
-      setIsUpdating(false);
-    }
-  }, []);
-
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -244,15 +201,6 @@ export default function HistoryPage() {
             <h1 className="text-sm font-semibold text-foreground">历史战绩</h1>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleUpdatePrices}
-              disabled={isUpdating}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:border-foreground/30 transition disabled:opacity-50"
-            >
-              <RefreshIcon />
-              {isUpdating ? '更新中...' : '更新价格'}
-            </button>
             {records.length > 0 && (
               <button
                 type="button"

@@ -21,7 +21,7 @@
 - **辩论交叉复核**：每轮辩论引入其他分析师观点和最近辩论历史，促使 Agent 复核自己的结论。
 - **主持人协调机制**：主持人负责指出证据冲突、逻辑缺口和关键分歧，但不作为第四个投票者。
 - **置信度加权共识**：使用辩论后的最终立场和置信度投票，达到 2/3 权重才形成团队共识。
-- **BYOK 模式**：用户可自行配置大模型 API Key；MCP 数据源可选，未配置时使用内置免费数据源。
+- **BYOK + BYO MCP**：用户自行配置大模型 API Key 与金融数据 MCP；平台不提供或背书真实行情、新闻、财报与研报。
 - **历史留痕与导出**：保存完整分析过程，支持历史复盘、胜率统计、图片 / PDF / JSON 导出。
 
 ## 系统流程
@@ -29,7 +29,7 @@
 ```text
 选择市场与标的
   ↓
-获取行情、财务、新闻、资金流与可选 MCP 数据
+从用户 MCP 获取带来源标记的金融数据
   ↓
 三位分析师 Agent 独立分析
   ↓
@@ -45,11 +45,10 @@
 | 路由 | 功能 |
 |---|---|
 | `/` | 分析工作台：市场选择、单股分析、批量分析、实时过程展示、最终报告 |
-| `/settings` | API 配置：大模型 API、数据源 API、MCP 数据源 |
+| `/settings` | API 配置：大模型 API、必填的用户 MCP 数据源 |
 | `/history` | 历史战绩：分析记录、胜率统计、分析师表现 |
 | `/history/[id]` | 历史详情：完整过程回放、报告导出 |
 | `/api/analyze` | SSE 流式多 Agent 分析接口 |
-| `/api/stock/price` | 股票价格查询接口 |
 | `/api/mcp/test` | MCP Server 连接测试接口 |
 
 ## 技术栈
@@ -62,7 +61,7 @@
 | Data Viz | Recharts |
 | Export | html2canvas, jsPDF |
 | LLM | OpenAI-compatible Chat Completions API |
-| Data Source | 东方财富、腾讯行情、SEC、HKEXnews、Nasdaq、MCP 可选 |
+| Data Source | 用户自行提供的 MCP（真实分析唯一数据来源） |
 
 ## 快速开始
 
@@ -112,14 +111,14 @@ API Key 仅保存在当前浏览器会话中；服务端不持久化用户密钥
 
 ## MCP 数据源
 
-系统支持通过 Model Context Protocol 接入专业金融数据源。当前内置 MCP 工具适配方向包括：
+真实分析必须通过 Model Context Protocol 接入用户自己的金融数据源。平台仅执行 HTTPS、公网地址与连接安全检查，并为每项数据保留 MCP 服务名和工具名。当前自动适配方向包括：
 
 - `FinGeneralQuery`：综合金融数据查询
 - `MacroIndustryData`：宏观与行业数据
 - `FinancialResearchReport`：券商研报检索
 - `AnnouncementData`：上市公司公告检索
 
-在生产环境使用外部 MCP Server 前，应确认数据源授权、频率限制、服务条款和 token 脱敏方案。
+未配置完整模型或可用 MCP 时，系统只运行明确标记的模拟模式。MCP token 如放在 URL 中会保存在当前用户浏览器配置里，使用者应自行确认授权、频率限制、服务条款和 token 保护方案。
 
 ## 部署
 
@@ -133,12 +132,9 @@ pnpm next build
 
 | 变量 | 说明 |
 |---|---|
-| `ENABLE_MOCK_MODE` | 演示模式开关。设为 `true` 后，未配置用户模型 API Key 时使用内置模拟分析 |
-| `SEC_USER_AGENT` | SEC 请求标识，建议包含项目名和联系邮箱 |
 | `UPSTASH_REDIS_REST_URL` | 生产环境分布式限流 Redis REST 地址 |
 | `UPSTASH_REDIS_REST_TOKEN` | 生产环境分布式限流 Redis REST Token |
 | `TRUSTED_CLIENT_IP_HEADER` | 真实客户端 IP Header，默认 `x-forwarded-for` |
-| `DATA_SOURCE_COMPLIANCE_ACK` | 数据源授权确认版本，当前要求 `2026-06` |
 | `ALLOW_IN_MEMORY_RATE_LIMIT` | 单实例演示环境可设为 `true`；正式公网环境建议使用分布式限流 |
 
 > 注意：Vercel Hobby 计划的函数执行时长有限。当前 `/api/analyze` 已按演示环境配置为 60 秒上限。完整多 Agent 辩论在真实模型较慢时可能需要更高执行时长或后端任务队列。
@@ -149,18 +145,15 @@ pnpm next build
 
 | 变量 | 示例值 |
 |---|---|
-| `ENABLE_MOCK_MODE` | `true` |
 | `ALLOW_IN_MEMORY_RATE_LIMIT` | `true` |
-| `DATA_SOURCE_COMPLIANCE_ACK` | `2026-06` |
-| `SEC_USER_AGENT` | `YuanQiAlpha/1.0 contact@example.com` |
 
-Mock 模式仅用于产品演示和流程验证。正式公网使用时，应改为分布式限流、真实数据源授权和人工审核流程。
+Mock 模式仅用于产品演示和流程验证。真实分析不会调用任何平台内置金融数据源，并要求用户 MCP 成功返回至少一项带来源数据。
 
 ## 数据源与合规说明
 
-当前系统集成了多类公开数据源与可选 MCP 专业数据源。正式用于公网或机构业务场景前，建议完成：
+当前系统不集成平台内置真实金融数据源。正式用于公网或机构业务场景前，建议完成：
 
-- 数据源授权与频率限制确认
+- 由 MCP 使用者确认数据源授权与频率限制
 - API Key 与 MCP token 脱敏
 - 模型输出合规审核
 - “非投资建议 / 需人工确认”提示

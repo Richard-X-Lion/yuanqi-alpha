@@ -33,11 +33,25 @@ export interface MCPCallToolResult {
   isError?: boolean;
 }
 
+export type MCPDataKind =
+  | "market"
+  | "financial"
+  | "fundFlow"
+  | "news"
+  | "research"
+  | "announcement";
+
+export interface MCPDataEvidence {
+  kind: MCPDataKind;
+  label: string;
+  content: string;
+  source: {
+    serverId: string;
+    serverName: string;
+    toolName: string;
+  };
+}
+
 export interface MCPDataSourceResult {
-  marketData?: string;
-  financialData?: string;
-  fundFlowData?: string;
-  newsData?: string;
-  researchReport?: string;
-  announcement?: string;
+  entries: MCPDataEvidence[];
 }

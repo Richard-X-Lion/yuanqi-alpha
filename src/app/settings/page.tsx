@@ -5,13 +5,11 @@ import Link from 'next/link';
 import {
   type ApiConfig,
   type LLMProviderConfig,
-  type DataProviderConfig,
   type MCPServerConfigItem,
   buildDefaultConfig,
   saveConfig,
   loadConfig,
   DEFAULT_LLM_CONFIGS,
-  DEFAULT_DATA_CONFIG,
 } from '@/lib/api-config';
 import { MODEL_SUGGESTIONS } from '@/lib/agents/config';
 
@@ -179,13 +177,13 @@ function MCPConfigSection({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ server }),
       });
-      const result = await response.json() as { serverInfo?: { name?: string; version?: string }; toolCount?: number; error?: string };
+      const result = await response.json() as { serverInfo?: { name?: string; version?: string }; toolCount?: number; tools?: string[]; error?: string };
       if (!response.ok) throw new Error(result.error || `连接失败 (${response.status})`);
       setTesting(prev => ({
         ...prev,
         [index]: {
           status: 'success',
-          message: `连接成功！${result.serverInfo?.name || server.name} v${result.serverInfo?.version || '-'}，${result.toolCount || 0} 个工具`,
+          message: `连接成功！${result.serverInfo?.name || server.name} v${result.serverInfo?.version || '-'}，${result.toolCount || 0} 个工具${result.tools?.length ? `：${result.tools.slice(0, 8).join('、')}` : ''}`,
         },
       }));
     } catch (e) {
@@ -204,10 +202,10 @@ function MCPConfigSection({
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground font-medium">MCP 数据源（可选）</p>
+            <p className="text-sm text-foreground font-medium">MCP 数据源（真实分析必填）</p>
             <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-              通过 Model Context Protocol (MCP) 连接专业金融数据源。启用后，系统将优先使用 MCP 数据源获取股票数据。
-              支持从 MCP Servers 介绍页面复制配置 JSON 粘贴添加。
+              平台不提供内置行情、新闻或财报。真实分析完全使用您启用的 MCP；未配置 MCP 时只运行明确标记的模拟模式。
+              系统仅检查连接安全，并会在分析页标注每项数据对应的 MCP 服务和工具。
             </p>
           </div>
         </div>
@@ -289,7 +287,7 @@ function MCPConfigSection({
                     placeholder="https://api.example.com/mcp-server?token=xxx"
                     className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition"
                   />
-                  <p className="mt-1 text-[11px] text-muted-foreground/60">完整的 MCP Server URL，包含 token 等认证参数</p>
+                  <p className="mt-1 text-[11px] text-muted-foreground/60">完整的 HTTPS MCP Server URL，可包含 token。系统会自动匹配支持 query、symbol 等常见参数的金融查询工具。</p>
                 </div>
               </div>
             </div>
@@ -309,84 +307,13 @@ function MCPConfigSection({
 }
 
 // ============================================================
-// Data Provider Card
-// ============================================================
-
-function DataProviderCard({
-  config,
-  defaultConfig,
-  onChange,
-}: {
-  config: DataProviderConfig;
-  defaultConfig: DataProviderConfig;
-  onChange: (updated: DataProviderConfig) => void;
-}) {
-  return (
-    <div className={`rounded-lg border bg-card overflow-hidden transition ${config.enabled ? 'border-border' : 'border-border/50 opacity-60'}`}>
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border">
-        <h3 className="text-sm font-semibold text-foreground">{config.name || defaultConfig.name}</h3>
-        <button
-          type="button"
-          onClick={() => onChange({ ...config, enabled: !config.enabled })}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.enabled ? 'bg-primary' : 'bg-muted'}`}
-        >
-          <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${config.enabled ? 'translate-x-4.5' : 'translate-x-1'}`} />
-        </button>
-      </div>
-      <div className="p-5 space-y-4">
-        {/* Provider Name */}
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">数据源名称</label>
-          <input
-            type="text"
-            value={config.name}
-            onChange={(e) => onChange({ ...config, name: e.target.value })}
-            placeholder="如：东方财富、Tushare、自定义数据源"
-            disabled={!config.enabled}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        </div>
-
-        {/* Base URL */}
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">API Base URL</label>
-          <input
-            type="text"
-            value={config.baseUrl}
-            onChange={(e) => onChange({ ...config, baseUrl: e.target.value })}
-            placeholder={defaultConfig.baseUrl || "https://api.example.com"}
-            disabled={!config.enabled}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground/60">留空则使用系统默认的免费数据源</p>
-        </div>
-
-        {/* API Key */}
-        <div>
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">API Key（可选）</label>
-          <input
-            type="password"
-            value={config.apiKey}
-            onChange={(e) => onChange({ ...config, apiKey: e.target.value })}
-            placeholder="如需要认证，请输入您的 API Key"
-            disabled={!config.enabled}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground/60">部分数据源无需密钥，留空即可</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
 // Main Settings Page
 // ============================================================
 
 export default function SettingsPage() {
   const [config, setConfig] = useState<ApiConfig>(buildDefaultConfig());
   const [saved, setSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'llm' | 'data' | 'mcp'>('llm');
+  const [activeTab, setActiveTab] = useState<'llm' | 'mcp'>('llm');
 
   useEffect(() => {
     const savedConfig = loadConfig();
@@ -400,7 +327,6 @@ export default function SettingsPage() {
           capital: { ...defaults.llm.capital, ...savedConfig.llm.capital },
           moderator: { ...defaults.llm.moderator, ...savedConfig.llm.moderator },
         },
-        data: { ...defaults.data, ...savedConfig.data },
         mcp: {
           enabled: savedConfig.mcp?.enabled ?? false,
           servers: savedConfig.mcp?.servers?.length
@@ -427,14 +353,6 @@ export default function SettingsPage() {
     setConfig((prev) => ({
       ...prev,
       llm: { ...prev.llm, [key]: updated },
-    }));
-    setSaved(false);
-  };
-
-  const updateDataConfig = (updated: DataProviderConfig) => {
-    setConfig((prev) => ({
-      ...prev,
-      data: updated,
     }));
     setSaved(false);
   };
@@ -535,7 +453,8 @@ export default function SettingsPage() {
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                 API Key 仅在当前浏览器会话中保存，发起分析时会通过 HTTPS 发送到本应用服务端并转发给您配置的模型平台；服务端不会持久化密钥。
                 大模型 API 必须兼容 OpenAI 接口格式 (/v1/chat/completions)。
-                四个 Agent 均需配置模型与 API Key；MCP 可选，未配置时使用系统内置免费行情与资讯数据源。
+                四个 Agent 均需配置模型与 API Key；真实分析还必须启用至少一个可用 MCP，所有金融数据均来自用户 MCP。
+                未配置完整模型或 MCP 时，系统只运行模拟模式。
                 第三个模型槽位在A股框架中负责资金面，在港美股 AlphaAgents 框架中负责估值与价格量分析。
               </p>
             </div>
@@ -543,9 +462,6 @@ export default function SettingsPage() {
           <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
             <span className="text-muted-foreground">
               大模型已配置：<span className="text-foreground font-medium">{configuredLLMCount}/{totalLLMCount}</span>
-            </span>
-            <span className="text-muted-foreground">
-              自定义数据源：<span className="text-foreground font-medium">{config.data.enabled ? '已启用' : '未启用'}</span>
             </span>
             <span className="text-muted-foreground">
               MCP数据源：<span className="text-foreground font-medium">{enabledMCPCount > 0 ? `${enabledMCPCount}个已启用` : '未启用'}</span>
@@ -563,15 +479,6 @@ export default function SettingsPage() {
             }`}
           >
             大模型 API
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('data')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
-              activeTab === 'data' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            数据源 API
           </button>
           <button
             type="button"
@@ -629,28 +536,6 @@ export default function SettingsPage() {
               defaultConfig={DEFAULT_LLM_CONFIGS.moderator}
               onChange={(c) => updateLLMConfig('moderator', c)}
               modelSuggestion={MODEL_SUGGESTIONS.moderator}
-            />
-          </div>
-        )}
-
-        {/* Data Config Section */}
-        {activeTab === 'data' && (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground font-medium">自定义数据源（可选）</p>
-                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                    系统默认使用免费公开数据源。如果您有私有数据源接口，可在此配置，系统将优先使用您的数据源。
-                    支持东方财富、同花顺、Tushare、AKShare 等任何兼容的数据源。
-                  </p>
-                </div>
-              </div>
-            </div>
-            <DataProviderCard
-              config={config.data}
-              defaultConfig={DEFAULT_DATA_CONFIG}
-              onChange={updateDataConfig}
             />
           </div>
         )}

@@ -1315,6 +1315,10 @@ export default function HomePage() {
           ))}
         </div>
 
+        <div className="rounded-lg border border-gold/20 bg-gold/5 px-3 py-2 text-xs text-terminal-muted">
+          真实分析只读取您在 API 配置中启用的 MCP 数据，并逐项显示 MCP 服务与工具来源；未配置完整模型或 MCP 时仅运行模拟模式。
+        </div>
+
         {/* Error Display */}
         {error && (
           <div className="p-4 bg-sell/10 border border-sell/20 rounded-lg">
@@ -1469,42 +1473,32 @@ export default function HomePage() {
               <div id="section-data" className="p-3 rounded-lg border border-terminal-border/30 bg-terminal-card">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-sm">📡</span>
-                  <span className="text-xs font-bold text-foreground">数据获取状态</span>
+                  <span className="text-xs font-bold text-foreground">数据来源与获取状态</span>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <span className={`text-xs font-mono ${dataStatus.marketData ? 'text-buy' : 'text-sell'}`}>
-                    {dataStatus.marketData ? '✓' : '✗'} 行情数据
-                  </span>
-                  <span className={`text-xs font-mono ${dataStatus.financialData ? 'text-buy' : dataStatus.market === 'CN' ? 'text-sell' : 'text-hold'}`}>
-                    {dataStatus.financialData ? '✓' : dataStatus.market === 'CN' ? '✗' : '△'}{' '}
-                    {dataStatus.market === 'CN'
-                      ? '财务数据'
-                      : dataStatus.financialData
-                        ? `标准化财务数据${dataStatus.financialSource ? `(${dataStatus.financialSource})` : ''}`
-                        : dataStatus.filingEvidenceCount
-                          ? `官方财报公告(${dataStatus.filingEvidenceCount}份)`
-                          : '标准化财务资料'}
-                  </span>
-                  <span className={`text-xs font-mono ${dataStatus.newsCount > 0 ? 'text-buy' : 'text-sell'}`}>
-                    {dataStatus.newsCount > 0 ? '✓' : '✗'} 新闻资讯({dataStatus.newsCount}条)
-                  </span>
-                  {dataStatus.market === 'CN' ? (
-                    <span className={`text-xs font-mono ${dataStatus.fundFlowData ? 'text-buy' : 'text-sell'}`}>
-                      {dataStatus.fundFlowData ? '✓' : '✗'} 资金流向
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-3 text-xs font-mono">
+                    <span className={isMockMode ? 'text-hold' : 'text-buy'}>
+                      {isMockMode ? '△ 模拟数据（非真实市场）' : '✓ 仅使用用户 MCP 数据'}
                     </span>
-                  ) : (
-                    <span className={`text-xs font-mono ${dataStatus.priceHistoryData ? 'text-buy' : 'text-sell'}`}>
-                      {dataStatus.priceHistoryData ? '✓' : '✗'} 价格量历史
-                    </span>
-                  )}
-                  {dataStatus.mcpStatus && dataStatus.mcpStatus.enabled && (
-                    <span className={`text-xs font-mono ${dataStatus.mcpStatus.dataTypes.length > 0 ? 'text-buy' : 'text-sell'}`}>
-                      {dataStatus.mcpStatus.dataTypes.length > 0 ? '✓' : '✗'} MCP数据源
-                      {dataStatus.mcpStatus.dataTypes.length > 0
-                        ? `(${dataStatus.mcpStatus.dataTypes.join(', ')})`
-                        : ' (未获取到数据，使用免费API)'}
-                    </span>
-                  )}
+                    {dataStatus.mcpStatus && !isMockMode ? (
+                      <span className="text-muted-foreground">
+                        已连接 {dataStatus.mcpStatus.connected}/{dataStatus.mcpStatus.configured} 个 MCP
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-[11px] text-terminal-muted">
+                    平台不提供或背书行情、新闻、财报和研报；真实分析中的每项资料均来自下列用户 MCP 服务。
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {(dataStatus.mcpStatus?.sources || []).map((source, index) => (
+                      <div key={`${source.serverName}-${source.toolName}-${source.kind}-${index}`} className="rounded border border-terminal-border/40 bg-terminal-bg/50 p-2">
+                        <div className="text-xs font-medium text-foreground">{source.label}</div>
+                        <div className="mt-1 text-[11px] text-terminal-muted">
+                          来源：{source.serverName} / {source.toolName}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

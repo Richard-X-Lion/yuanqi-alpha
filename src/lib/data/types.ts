@@ -1,3 +1,5 @@
+import type { MCPDataEvidence } from "@/lib/mcp/types";
+
 export interface MarketData {
   code: string;
   name: string;
@@ -88,11 +90,18 @@ export interface NewsItem {
 }
 
 export interface MCPDataContext {
+  entries: MCPDataEvidence[];
+  /** @deprecated MCP-only analysis uses attributed entries. */
   marketData?: string;
+  /** @deprecated MCP-only analysis uses attributed entries. */
   financialData?: string;
+  /** @deprecated MCP-only analysis uses attributed entries. */
   fundFlowData?: string;
+  /** @deprecated MCP-only analysis uses attributed entries. */
   newsData?: string;
+  /** @deprecated MCP-only analysis uses attributed entries. */
   researchReport?: string;
+  /** @deprecated MCP-only analysis uses attributed entries. */
   announcement?: string;
 }
 
