@@ -1,8 +1,17 @@
 import { lookup as dnsLookup } from "node:dns";
 import { Agent, fetch as undiciFetch } from "undici";
-import { isPrivateOrReservedIp, parsePublicHttpsUrl } from "./public-url";
+import { assertSafePublicUrl, isPrivateOrReservedIp, parsePublicHttpsUrl } from "./public-url";
 
-type SafeFetchInit = Omit<RequestInit, "body"> & { body?: string | Uint8Array };
+type SafeFetchInit = Omit<RequestInit, "body"> & { body?: string };
+
+export function prefersNativeFetch(userAgent: string | undefined): boolean {
+  return /cloudflare-workers|workerd/i.test(userAgent || "");
+}
+
+export function isUnsupportedAlpnError(error: unknown): boolean {
+  const outer = error as Error & { cause?: Error };
+  return /ALPNProtocols.+not implemented/i.test(`${outer?.message || ""} ${outer?.cause?.message || ""}`);
+}
 
 const safeAgent = new Agent({
   connect: {
@@ -41,7 +50,18 @@ const safeAgent = new Agent({
  */
 export async function safeExternalFetch(rawUrl: string, init: SafeFetchInit = {}, label = "外部服务"): Promise<Response> {
   const url = parsePublicHttpsUrl(rawUrl, label);
+  await assertSafePublicUrl(url.toString(), label);
+  const requestInit: RequestInit = {
+    method: init.method,
+    headers: init.headers,
+    body: init.body,
+    signal: init.signal,
+    redirect: "error",
+  };
   try {
+    if (prefersNativeFetch(globalThis.navigator?.userAgent)) {
+      return await fetch(url, requestInit);
+    }
     const response = await undiciFetch(url, {
       method: init.method,
       headers: init.headers,
@@ -52,6 +72,13 @@ export async function safeExternalFetch(rawUrl: string, init: SafeFetchInit = {}
     });
     return response as unknown as Response;
   } catch (error) {
+    if (isUnsupportedAlpnError(error)) {
+      try {
+        return await fetch(url, requestInit);
+      } catch (nativeError) {
+        throw new Error(`${label}连接失败：托管环境无法建立兼容的 HTTPS 连接`, { cause: nativeError });
+      }
+    }
     const outer = error as Error & { cause?: Error & { code?: string } };
     const cause = outer.cause;
     const detail = cause?.code === "EACCES"

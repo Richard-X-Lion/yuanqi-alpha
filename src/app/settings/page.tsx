@@ -167,6 +167,7 @@ function MCPConfigSection({
   onToggleEnabled: (enabled: boolean) => void;
 }) {
   const [testing, setTesting] = useState<Record<number, { status: 'idle' | 'testing' | 'success' | 'error'; message?: string }>>({});
+  const [visibleUrls, setVisibleUrls] = useState<Record<string, boolean>>({});
 
   const testConnection = async (index: number, server: MCPServerConfigItem) => {
     if (!server.url.trim()) return;
@@ -212,6 +213,7 @@ function MCPConfigSection({
         <div className="mt-3 flex items-center gap-3">
           <button
             type="button"
+            aria-label={config.mcp.enabled ? '禁用 MCP 数据源' : '启用 MCP 数据源'}
             onClick={() => onToggleEnabled(!config.mcp.enabled)}
             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.mcp.enabled ? 'bg-primary' : 'bg-muted'}`}
           >
@@ -248,6 +250,7 @@ function MCPConfigSection({
                   </button>
                   <button
                     type="button"
+                    aria-label={server.enabled ? `禁用 ${server.name || `MCP Server ${index + 1}`}` : `启用 ${server.name || `MCP Server ${index + 1}`}`}
                     onClick={() => onUpdateServer(index, { ...server, enabled: !server.enabled })}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${server.enabled ? 'bg-primary' : 'bg-muted'}`}
                   >
@@ -280,13 +283,24 @@ function MCPConfigSection({
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-muted-foreground mb-1.5">MCP Server URL</label>
-                  <input
-                    type="text"
-                    value={server.url}
-                    onChange={(e) => onUpdateServer(index, { ...server, url: e.target.value })}
-                    placeholder="https://api.example.com/mcp-server?token=xxx"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition"
-                  />
+                  <div className="relative">
+                    <input
+                      type={visibleUrls[server.id] ? 'text' : 'password'}
+                      value={server.url}
+                      onChange={(e) => onUpdateServer(index, { ...server, url: e.target.value })}
+                      placeholder="https://api.example.com/mcp-server?token=xxx"
+                      autoComplete="off"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 pr-10 text-sm text-foreground font-mono placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition"
+                    />
+                    <button
+                      type="button"
+                      aria-label={visibleUrls[server.id] ? '隐藏 MCP URL' : '显示 MCP URL'}
+                      onClick={() => setVisibleUrls((previous) => ({ ...previous, [server.id]: !previous[server.id] }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground transition hover:text-foreground"
+                    >
+                      {visibleUrls[server.id] ? <EyeOffIcon /> : <EyeIcon />}
+                    </button>
+                  </div>
                   <p className="mt-1 text-[11px] text-muted-foreground/60">完整的 HTTPS MCP Server URL，可包含 token。系统会自动匹配支持 query、symbol 等常见参数的金融查询工具。</p>
                 </div>
               </div>
