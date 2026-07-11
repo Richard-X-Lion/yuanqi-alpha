@@ -8,8 +8,12 @@ node_modules/
 # Production build
 dist/
 build/
+!build/
+!build/sites-vite-plugin.ts
 out/
 .next/
+.vinext/
+.wrangler/
 .rsbuild/
 
 # Testing
