@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertSafePublicUrl, parsePublicHttpsUrl } from "./public-url";
+import { assertSafePublicUrl, parsePublicHttpsUrl, resolvePublicDns } from "./public-url";
 import { isUnsupportedAlpnError, prefersNativeFetch, rejectRedirectResponse, safeExternalFetch } from "./safe-fetch";
 
 test("requires HTTPS and rejects local targets", () => {
@@ -26,6 +26,25 @@ test("accepts a hostname only when every resolved address is public", async () =
       { address: "10.0.0.8", family: 4 },
     ],
   ), /不允许访问/);
+});
+
+test("resolves A and AAAA records without node:dns.lookup", async () => {
+  const dualStack = await resolvePublicDns(
+    "api.example.com",
+    async () => ["8.8.8.8"],
+    async () => ["2001:4860:4860::8888"],
+  );
+  assert.deepEqual(dualStack, [
+    { address: "8.8.8.8", family: 4 },
+    { address: "2001:4860:4860::8888", family: 6 },
+  ]);
+
+  const ipv4Only = await resolvePublicDns(
+    "api.example.com",
+    async () => ["8.8.4.4"],
+    async () => { throw new Error("ENODATA"); },
+  );
+  assert.deepEqual(ipv4Only, [{ address: "8.8.4.4", family: 4 }]);
 });
 
 test("connection-time safe fetch rejects a private IP before opening a socket", async () => {

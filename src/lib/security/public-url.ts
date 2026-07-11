@@ -1,8 +1,9 @@
-import { lookup as dnsLookup } from "node:dns/promises";
+import { resolve4 as dnsResolve4, resolve6 as dnsResolve6 } from "node:dns/promises";
 import { isIP } from "node:net";
 
 type LookupResult = { address: string; family: number };
 type LookupFn = (hostname: string) => Promise<LookupResult[]>;
+type ResolveFn = (hostname: string) => Promise<string[]>;
 
 function isPrivateIpv4(address: string): boolean {
   const parts = address.split(".").map(Number);
@@ -75,8 +76,29 @@ export function parsePublicHttpsUrl(rawUrl: string, label = "外部服务"): URL
   return url;
 }
 
-const defaultLookup: LookupFn = async (hostname) =>
-  dnsLookup(hostname, { all: true, verbatim: true });
+export async function resolvePublicDns(
+  hostname: string,
+  resolve4: ResolveFn = dnsResolve4,
+  resolve6: ResolveFn = dnsResolve6,
+): Promise<LookupResult[]> {
+  const [ipv4, ipv6] = await Promise.allSettled([resolve4(hostname), resolve6(hostname)]);
+  const addresses: LookupResult[] = [];
+  if (ipv4.status === "fulfilled") {
+    addresses.push(...ipv4.value.map((address) => ({ address, family: 4 })));
+  }
+  if (ipv6.status === "fulfilled") {
+    addresses.push(...ipv6.value.map((address) => ({ address, family: 6 })));
+  }
+  if (addresses.length === 0 && ipv4.status === "rejected" && ipv6.status === "rejected") {
+    throw ipv4.reason;
+  }
+  return addresses;
+}
+
+// Cloudflare Workers does not implement node:dns.lookup(), but does support
+// resolve4()/resolve6(). Querying both record families keeps the public-address
+// validation equivalent across Node and the Sites edge runtime.
+const defaultLookup: LookupFn = resolvePublicDns;
 
 export async function assertSafePublicUrl(
   rawUrl: string,
