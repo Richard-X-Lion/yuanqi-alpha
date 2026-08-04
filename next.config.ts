@@ -1,4 +1,8 @@
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { NextConfig } from 'next';
+
+const projectRoot = dirname(fileURLToPath(import.meta.url));
 
 const contentSecurityPolicy = [
   "default-src 'self'",
@@ -16,8 +20,7 @@ const contentSecurityPolicy = [
 ].join('; ');
 
 const nextConfig: NextConfig = {
-  // outputFileTracingRoot: path.resolve(__dirname, '../../'),  // Uncomment and add 'import path from "path"' if needed
-  /* config options here */
+  turbopack: { root: projectRoot },
   allowedDevOrigins: ['*.dev.coze.site'],
   async headers() {
     return [{
