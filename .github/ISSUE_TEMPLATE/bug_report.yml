@@ -1,0 +1,82 @@
+name: Bug 报告 / Bug Report
+description: 报告可复现的问题 / Report a reproducible problem
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。提交前请删除所有 API Key、MCP token、真实客户信息和敏感日志。
+        Thank you for reporting a bug. Remove all API keys, MCP tokens, real client information, and sensitive logs before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: 版本或提交 / Version or commit
+      description: "例如 v0.1.0、main 或完整 commit SHA / Example: v0.1.0, main, or a full commit SHA"
+      placeholder: v0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 运行模式 / Run mode
+      options:
+        - 模拟模式 / Simulation mode
+        - 用户模型 + MCP / User models + MCP
+        - 无法确认 / Unsure
+    validations:
+      required: true
+  - type: dropdown
+    id: market
+    attributes:
+      label: 市场 / Market
+      options:
+        - A 股 / China A-shares
+        - 港股 / Hong Kong equities
+        - 美股 / U.S. equities
+        - 与市场无关 / Not market-specific
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境信息 / Environment
+      description: 操作系统、浏览器、Node.js 与 pnpm 版本 / OS, browser, Node.js, and pnpm versions
+      placeholder: macOS 15, Safari 19, Node.js 20, pnpm 9
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      placeholder: |
+        1. 打开…… / Open ...
+        2. 配置…… / Configure ...
+        3. 点击…… / Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果 / Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果 / Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 已脱敏的截图或日志 / Redacted screenshots or logs
+      description: 请确认其中没有密钥、token、客户数据或内部地址 / Confirm that no secrets, tokens, client data, or internal addresses remain
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 安全确认 / Security confirmation
+      options:
+        - label: 我已移除 API Key、MCP token、真实客户信息和其他敏感数据 / I removed API keys, MCP tokens, real client information, and other sensitive data
+          required: true

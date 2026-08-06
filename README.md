@@ -6,6 +6,7 @@
 **A multi-agent AI research assistant for institutional investment research and advisory workflows**
 
 [![Live Demo](https://img.shields.io/badge/Live_Demo-Vercel-000000?logo=vercel)](https://yuanqi-alpha.vercel.app/)
+[![Release](https://img.shields.io/github/v/release/Richard-X-Lion/yuanqi-alpha?label=Release)](https://github.com/Richard-X-Lion/yuanqi-alpha/releases)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=000000)](https://react.dev/)
 [![License](https://img.shields.io/badge/License-Apache--2.0-D22128)](./LICENSE)
@@ -220,8 +221,8 @@ When forking or self-hosting, configure environment variables through the hostin
 
 ## 参与贡献 · Contributing
 
-欢迎提交 Issue、功能建议和 Pull Request。提交代码前请先运行：<br>
-Issues, feature proposals, and pull requests are welcome. Before submitting code, please run:
+欢迎提交 Issue、功能建议和 Pull Request。请先阅读[贡献指南](./CONTRIBUTING.md)、[安全政策](./SECURITY.md)和[更新日志](./CHANGELOG.md)。提交代码前请运行：<br>
+Issues, feature proposals, and pull requests are welcome. Please read the [contribution guide](./CONTRIBUTING.md), [security policy](./SECURITY.md), and [changelog](./CHANGELOG.md) first. Before submitting code, run:
 
 ```bash
 pnpm test

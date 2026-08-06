@@ -1,0 +1,56 @@
+name: 功能建议 / Feature Request
+description: 提议新的业务场景或产品能力 / Propose a new use case or capability
+title: "[Feature] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请描述业务问题和使用者价值，而不只是具体实现。
+        Please describe the business problem and user value, not only a preferred implementation.
+  - type: textarea
+    id: problem
+    attributes:
+      label: 业务问题 / Business problem
+      description: 当前是什么角色在什么场景中遇到了什么问题？ / Which user faces what problem in which workflow?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建议方案 / Proposed solution
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及模块 / Area
+      options:
+        - Agent 分析与提示词 / Agent analysis and prompts
+        - 辩论、投票与主持人 / Debate, voting, and moderator
+        - MCP 数据接入 / MCP data integration
+        - 历史记录与导出 / History and export
+        - UI 与可访问性 / UI and accessibility
+        - 文档与开发体验 / Documentation and developer experience
+        - 安全与合规 / Security and compliance
+        - 其他 / Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 已考虑的替代方案 / Alternatives considered
+  - type: textarea
+    id: compliance
+    attributes:
+      label: 数据与合规影响 / Data and compliance impact
+      description: 是否涉及真实金融数据、用户密钥、投资建议表达或客户信息？ / Does this involve live financial data, user secrets, investment-advice language, or client information?
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 参与意愿 / Contribution interest
+      options:
+        - label: 我愿意为这个功能提交 Pull Request / I am willing to submit a pull request for this feature

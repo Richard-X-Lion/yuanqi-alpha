@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 在线体验 / Live Demo
+    url: https://yuanqi-alpha.vercel.app/
+    about: 提交问题前可先在在线版本确认现象 / Reproduce the behavior in the live demo before filing an issue
+  - name: 使用说明 / Documentation
+    url: https://github.com/Richard-X-Lion/yuanqi-alpha#readme
+    about: 查看安装、模型与 MCP 配置说明 / Read installation, model, and MCP configuration guidance
