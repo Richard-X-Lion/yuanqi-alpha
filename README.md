@@ -154,6 +154,9 @@ Model API keys are stored in the current browser's `sessionStorage` and are not 
 
 ## MCP 数据源 · MCP Data Sources
 
+配置与排障请见 [docs/mcp-configuration.md](./docs/mcp-configuration.md)。
+Configuration and troubleshooting: [docs/mcp-configuration.md](./docs/mcp-configuration.md).
+
 **中文**
 
 非模拟分析必须通过 Model Context Protocol 接入用户自己的金融数据源。平台仅执行 HTTPS、公网地址与连接安全检查，并为每项数据保留 MCP 服务名和工具名。平台本身不提供或背书真实行情、新闻、财报、研报或公告。
